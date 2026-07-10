@@ -18,7 +18,6 @@ export interface MatchState extends MatchPublic {
     scratchIndex: number;
     teaserIndex: number;
   };
-  lastDice: [number, number] | null;
   rng: () => number;
 }
 

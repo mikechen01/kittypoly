@@ -69,6 +69,7 @@ export interface MatchPublic {
   turnDeadlineMs: number | null;
   awaiting: "roll" | "buyOrSkip" | "buildOrEnd" | "end";
   ownership: Record<string, { ownerId: string; buildings: BuildingLevel }>;
+  lastDice: [number, number] | null;
   winnerId: string | null;
   events: GameEvent[];
 }

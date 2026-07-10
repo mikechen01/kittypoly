@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
-import type { RoomPublic } from "@kittypoly/game";
+import { getBuildableTerritories, type RoomPublic } from "@kittypoly/game";
 import type { ClientMessage } from "../ws/client";
 
 type Intent = Extract<ClientMessage, { type: "intent" }>["intent"];
@@ -13,7 +13,7 @@ interface ActionPanelProps {
 }
 
 export function ActionPanel({ room, playerId, error, onIntent }: ActionPanelProps) {
-  const [spaceId, setSpaceId] = useState("");
+  const [selectedSpaceId, setSelectedSpaceId] = useState("");
   const [now, setNow] = useState(() => Date.now());
   const match = room.match;
   const player = room.players.find((candidate) => candidate.id === playerId);
@@ -22,23 +22,42 @@ export function ActionPanel({ room, playerId, error, onIntent }: ActionPanelProp
   const secondsLeft =
     match.turnDeadlineMs === null ? null : Math.max(0, Math.ceil((match.turnDeadlineMs - now) / 1_000));
 
+  const buildables = useMemo(() => {
+    if (!player) return [];
+    return getBuildableTerritories({
+      playerId: player.id,
+      food: player.food,
+      ownership: match.ownership,
+    });
+  }, [player, match.ownership]);
+
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    if (!buildables.some((space) => space.id === selectedSpaceId)) {
+      setSelectedSpaceId(buildables[0]?.id ?? "");
+    }
+  }, [buildables, selectedSpaceId]);
+
+  const diceLabel =
+    match.lastDice === null ? null : `骰子：${match.lastDice[0]} + ${match.lastDice[1]} = ${match.lastDice[0] + match.lastDice[1]}`;
+
   return (
     <aside style={styles.panel}>
-      <p style={styles.eyebrow}>{isMyTurn ? "Your turn" : "Waiting"}</p>
-      <h2 style={styles.title}>{currentPlayer?.nickname ?? "No active player"}</h2>
+      <p style={styles.eyebrow}>{isMyTurn ? "輪到你" : "等待中"}</p>
+      <h2 style={styles.title}>{currentPlayer?.nickname ?? "尚無行動玩家"}</h2>
       <p style={styles.meta}>
-        Awaiting: <strong>{match.awaiting}</strong>
-        {secondsLeft === null ? "" : ` · ${secondsLeft}s left`}
+        狀態：<strong>{awaitingLabel(match.awaiting)}</strong>
+        {secondsLeft === null ? "" : ` · 剩餘 ${secondsLeft} 秒`}
       </p>
+      {diceLabel ? <p style={styles.dice}>{diceLabel}</p> : null}
 
       {player?.inCage && isMyTurn ? (
         <button type="button" onClick={() => onIntent("payCageFine")} style={styles.fullButton}>
-          Pay Fine
+          付罰金離開貓籠
         </button>
       ) : null}
 
@@ -47,55 +66,81 @@ export function ActionPanel({ room, playerId, error, onIntent }: ActionPanelProp
           <>
             {match.awaiting === "roll" ? (
               <button type="button" onClick={() => onIntent("rollDice")}>
-                Roll
+                擲骰子
               </button>
             ) : null}
 
             {match.awaiting === "buyOrSkip" ? (
               <>
                 <button type="button" onClick={() => onIntent("buyTerritory")}>
-                  Buy
+                  購買
                 </button>
                 <button type="button" onClick={() => onIntent("skipBuy")} style={styles.secondaryButton}>
-                  Skip
+                  略過
                 </button>
               </>
             ) : null}
 
             {match.awaiting === "buildOrEnd" ? (
               <>
-                <label style={styles.label}>
-                  Build spaceId
-                  <input
-                    style={styles.input}
-                    value={spaceId}
-                    onChange={(event) => setSpaceId(event.target.value)}
-                    placeholder="sunny-window"
-                  />
-                </label>
-                <button type="button" disabled={!spaceId.trim()} onClick={() => onIntent("buildHouse", spaceId.trim())}>
-                  Build
+                {buildables.length > 0 ? (
+                  <label style={styles.label}>
+                    蓋貓屋／貓別墅
+                    <select
+                      style={styles.input}
+                      value={selectedSpaceId}
+                      onChange={(event) => setSelectedSpaceId(event.target.value)}
+                    >
+                      {buildables.map((space) => (
+                        <option key={space.id} value={space.id}>
+                          {space.name}（目前 {space.buildings} → {space.nextLabel}，{space.houseCost} 貓糧）
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <p style={styles.wait}>目前沒有可建造的領地（需擁有整組顏色）。</p>
+                )}
+                <button
+                  type="button"
+                  disabled={!selectedSpaceId}
+                  onClick={() => onIntent("buildHouse", selectedSpaceId)}
+                >
+                  建造
                 </button>
                 <button type="button" onClick={() => onIntent("endTurn")} style={styles.secondaryButton}>
-                  End Turn
+                  結束回合
                 </button>
               </>
             ) : null}
 
             {match.awaiting === "end" ? (
               <button type="button" onClick={() => onIntent("endTurn")}>
-                End Turn
+                結束回合
               </button>
             ) : null}
           </>
         ) : (
-          <p style={styles.wait}>Actions unlock on your turn.</p>
+          <p style={styles.wait}>輪到你時才能操作。</p>
         )}
       </div>
 
       {error ? <p style={styles.error}>{error}</p> : null}
     </aside>
   );
+}
+
+function awaitingLabel(awaiting: RoomPublic["match"]["awaiting"]): string {
+  switch (awaiting) {
+    case "roll":
+      return "等待擲骰";
+    case "buyOrSkip":
+      return "購買或略過";
+    case "buildOrEnd":
+      return "建造或結束";
+    case "end":
+      return "結束回合";
+  }
 }
 
 const styles = {
@@ -124,6 +169,14 @@ const styles = {
     color: "var(--info)",
     fontWeight: 800,
     margin: 0,
+  },
+  dice: {
+    background: "var(--accent-2)",
+    border: "var(--border)",
+    fontSize: "1.15rem",
+    fontWeight: 900,
+    margin: 0,
+    padding: "0.55rem 0.75rem",
   },
   actions: {
     display: "flex",

@@ -244,6 +244,7 @@ function lobbyMatch(): MatchPublic {
     turnDeadlineMs: null,
     awaiting: "roll",
     ownership: {},
+    lastDice: null,
     winnerId: null,
     events: [],
   };
@@ -257,6 +258,7 @@ function toPublicMatch(match: MatchState): MatchPublic {
     turnDeadlineMs: match.turnDeadlineMs,
     awaiting: match.awaiting,
     ownership: { ...match.ownership },
+    lastDice: match.lastDice,
     winnerId: match.winnerId,
     events: [...match.events],
   };
