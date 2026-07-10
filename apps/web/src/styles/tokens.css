@@ -1,0 +1,19 @@
+:root {
+  --ink: #1a1a1a;
+  --paper: #fffdf7;
+  --accent: #ff6b35;
+  --accent-2: #ffd166;
+  --ok: #06d6a0;
+  --info: #118ab2;
+  --border: 2px solid var(--ink);
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+button {
+  border: var(--border);
+  background: var(--accent-2);
+  color: var(--ink);
+  font-weight: 800;
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+}
+body { background: var(--paper); color: var(--ink); margin: 0; }
