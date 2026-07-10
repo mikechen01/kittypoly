@@ -115,31 +115,22 @@ describe("GameEngine move", () => {
     expect(state.players.find((p) => p.id === "p2")!.food).toBe(1400);
   });
 
-  it("builds houses only with a monopoly and keeps building levels even", () => {
+  it("builds on the owned territory the player is standing on", () => {
     let m = twoPlayerMatch();
     m = {
       ...m,
       awaiting: "buildOrEnd",
       ownership: { "sunny-window": { ownerId: "p1", buildings: 0 } },
-      players: m.players.map((p) => (p.id === "p1" ? { ...p, food: 500 } : p)),
+      players: m.players.map((p) => (p.id === "p1" ? { ...p, position: 1, food: 500 } : p)),
     };
 
     let result = applyIntent(m, {
       type: "buildHouse",
       playerId: "p1",
-      spaceId: "sunny-window",
+      spaceId: "cardboard-castle",
       nowMs: 1_001,
     });
     expect(result.error).toBeDefined();
-    expect(result.state.ownership["sunny-window"]!.buildings).toBe(0);
-
-    m = {
-      ...m,
-      ownership: {
-        "sunny-window": { ownerId: "p1", buildings: 0 },
-        "cardboard-castle": { ownerId: "p1", buildings: 0 },
-      },
-    };
 
     result = applyIntent(m, {
       type: "buildHouse",
@@ -157,17 +148,8 @@ describe("GameEngine move", () => {
       spaceId: "sunny-window",
       nowMs: 1_003,
     });
-    expect(result.error).toBeDefined();
-    expect(result.state.ownership["sunny-window"]!.buildings).toBe(1);
-
-    result = applyIntent(result.state, {
-      type: "buildHouse",
-      playerId: "p1",
-      spaceId: "cardboard-castle",
-      nowMs: 1_004,
-    });
     expect(result.error).toBeUndefined();
-    expect(result.state.ownership["cardboard-castle"]!.buildings).toBe(1);
+    expect(result.state.ownership["sunny-window"]!.buildings).toBe(2);
   });
 
   it("sends a player to cage without GO salary when landing on go to cage", () => {

@@ -19,20 +19,27 @@ describe("economy", () => {
     expect(rentDue({ space: catTree, buildings: 0, ownerCatTreeCount: 5 })).toBe(200);
   });
 
-  it("lists buildable territories only when the full color group is owned", () => {
-    const brown = BOARD.filter((space) => space.kind === "territory" && space.group === "brown");
-    expect(brown).toHaveLength(2);
-
-    const ownership = Object.fromEntries(
-      brown.map((space) => [space.id, { ownerId: "p1", buildings: 0 as const }]),
-    );
+  it("lists only the owned territory the player is standing on", () => {
+    const sunny = BOARD[1];
+    if (sunny?.kind !== "territory") throw new Error("BOARD[1] must be a territory");
 
     const buildables = getBuildableTerritories({
       playerId: "p1",
       food: 1500,
-      ownership,
+      position: 1,
+      ownership: { [sunny.id]: { ownerId: "p1", buildings: 0 } },
     });
 
-    expect(buildables.map((space) => space.name).sort()).toEqual(brown.map((space) => space.name).sort());
+    expect(buildables).toHaveLength(1);
+    expect(buildables[0]?.id).toBe("sunny-window");
+
+    expect(
+      getBuildableTerritories({
+        playerId: "p1",
+        food: 1500,
+        position: 0,
+        ownership: { [sunny.id]: { ownerId: "p1", buildings: 0 } },
+      }),
+    ).toHaveLength(0);
   });
 });

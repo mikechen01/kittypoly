@@ -24,40 +24,31 @@ export interface BuildableTerritory {
   nextLabel: "貓屋" | "貓別墅";
 }
 
-/** Territories the player may legally upgrade by one level right now. */
+/**
+ * Party rule: you may upgrade the territory you are currently standing on,
+ * if you own it. No full-color-set requirement.
+ */
 export function getBuildableTerritories(args: {
   playerId: string;
   food: number;
+  position: number;
   ownership: Record<string, { ownerId: string; buildings: BuildingLevel }>;
 }): BuildableTerritory[] {
-  const ownedTerritories = BOARD.filter(
-    (space): space is TerritorySpace =>
-      space.kind === "territory" && args.ownership[space.id]?.ownerId === args.playerId,
-  );
+  const space = BOARD[args.position];
+  if (!space || space.kind !== "territory") return [];
 
-  return ownedTerritories.flatMap((space) => {
-    const owner = args.ownership[space.id];
-    if (!owner || owner.buildings >= 5 || args.food < space.houseCost) return [];
+  const owner = args.ownership[space.id];
+  if (!owner || owner.ownerId !== args.playerId) return [];
+  if (owner.buildings >= 5 || args.food < space.houseCost) return [];
 
-    const groupSpaces = BOARD.filter(
-      (candidate): candidate is TerritorySpace =>
-        candidate.kind === "territory" && candidate.group === space.group,
-    );
-    const groupOwnership = groupSpaces.map((groupSpace) => args.ownership[groupSpace.id]);
-    if (groupOwnership.some((owned) => owned?.ownerId !== args.playerId)) return [];
-
-    const minBuildings = Math.min(...groupOwnership.map((owned) => owned?.buildings ?? 0));
-    const nextBuildings = (owner.buildings + 1) as BuildingLevel;
-    if (nextBuildings > minBuildings + 1) return [];
-
-    return [
-      {
-        id: space.id,
-        name: space.name,
-        buildings: owner.buildings,
-        houseCost: space.houseCost,
-        nextLabel: nextBuildings === 5 ? "貓別墅" : "貓屋",
-      },
-    ];
-  });
+  const nextBuildings = (owner.buildings + 1) as BuildingLevel;
+  return [
+    {
+      id: space.id,
+      name: space.name,
+      buildings: owner.buildings,
+      houseCost: space.houseCost,
+      nextLabel: nextBuildings === 5 ? "貓別墅" : "貓屋",
+    },
+  ];
 }

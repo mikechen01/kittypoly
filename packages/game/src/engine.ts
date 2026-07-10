@@ -237,14 +237,8 @@ function applyBuildHouse(
   if (!owner || owner.ownerId !== player.id) {
     return { state, error: "尚未擁有這格" };
   }
-
-  const groupSpaces = BOARD.filter(
-    (candidate): candidate is Extract<BoardSpace, { kind: "territory" }> =>
-      candidate.kind === "territory" && candidate.group === space.group,
-  );
-  const groupOwnership = groupSpaces.map((groupSpace) => state.ownership[groupSpace.id]);
-  if (groupOwnership.some((owned) => owned?.ownerId !== player.id)) {
-    return { state, error: "需要擁有整組顏色" };
+  if (player.position !== space.index) {
+    return { state, error: "只能在自己目前停靠的領地建造" };
   }
   if (owner.buildings >= 5) {
     return { state, error: "已達建造上限" };
@@ -253,11 +247,7 @@ function applyBuildHouse(
     return { state, error: "食物不足" };
   }
 
-  const minBuildings = Math.min(...groupOwnership.map((owned) => owned?.buildings ?? 0));
   const nextBuildings = owner.buildings + 1;
-  if (nextBuildings > minBuildings + 1) {
-    return { state, error: "建築需要平均分配" };
-  }
 
   return {
     state: {

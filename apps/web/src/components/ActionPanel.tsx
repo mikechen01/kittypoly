@@ -27,6 +27,7 @@ export function ActionPanel({ room, playerId, error, onIntent }: ActionPanelProp
     return getBuildableTerritories({
       playerId: player.id,
       food: player.food,
+      position: player.position,
       ownership: match.ownership,
     });
   }, [player, match.ownership]);
@@ -84,7 +85,7 @@ export function ActionPanel({ room, playerId, error, onIntent }: ActionPanelProp
             {match.awaiting === "buildOrEnd" ? (
               <>
                 <p style={styles.hint}>
-                  像大富翁一樣：集齊同色整組領地後，可在回合內蓋貓屋／貓別墅（不必剛好停在那一格）。
+                  走到自己的領地時可蓋貓屋／貓別墅（只蓋目前停靠的那一格，不必集齊同色）。
                 </p>
                 {buildables.length > 0 ? (
                   <label style={styles.label}>
@@ -103,7 +104,7 @@ export function ActionPanel({ room, playerId, error, onIntent }: ActionPanelProp
                   </label>
                 ) : (
                   <p style={styles.wait}>
-                    目前不能建造：需要先擁有同一顏色的全部領地，才能蓋貓屋。
+                    目前不能建造：要停在自己擁有的領地上才可以蓋。
                   </p>
                 )}
                 <button
