@@ -5,6 +5,7 @@ import type { BoardSpace, CatAvatarId, GameEvent, MatchPublic, PlayerPublic } fr
 export const STARTING_FOOD = 1500;
 export const GO_SALARY = 200;
 export const TURN_TIMER_MS = 45_000;
+export const CAGE_FINE = 50;
 
 export interface MatchState extends MatchPublic {
   phase: "playing" | "finished";
@@ -36,6 +37,8 @@ export type GameIntent =
     }
   | { type: "buyTerritory"; playerId: string; nowMs: number }
   | { type: "skipBuy"; playerId: string; nowMs: number }
+  | { type: "buildHouse"; playerId: string; spaceId: string; nowMs: number }
+  | { type: "payCageFine"; playerId: string; nowMs: number }
   | { type: "endTurn"; playerId: string; nowMs: number };
 
 export interface ApplyIntentResult {
@@ -82,6 +85,10 @@ export function applyIntent(state: MatchState, intent: GameIntent): ApplyIntentR
       return applyBuyTerritory(state, intent);
     case "skipBuy":
       return applySkipBuy(state, intent);
+    case "buildHouse":
+      return applyBuildHouse(state, intent);
+    case "payCageFine":
+      return applyPayCageFine(state, intent);
     case "endTurn":
       return applyEndTurn(state, intent);
   }
@@ -104,35 +111,11 @@ function applyRollDice(
   }
 
   const dice = intent.dice ?? [rollDie(state.rng), rollDie(state.rng)];
-  const moveBy = dice[0] + dice[1];
-  const nextPosition = (player.position + moveBy) % BOARD_SIZE;
-  const collectsGo = player.position + moveBy >= BOARD_SIZE;
-  const landed = BOARD[nextPosition]!;
-  const food = player.food + (collectsGo ? GO_SALARY : 0);
-  const players = state.players.map((p) =>
-    p.id === player.id ? { ...p, position: nextPosition, food } : p,
-  );
-  const event: GameEvent = {
-    id: `event-${intent.nowMs}-${state.events.length + 1}`,
-    at: intent.nowMs,
-    message: `${player.nickname} 擲出 ${dice[0]} + ${dice[1]}，移動到 ${landed.name}${
-      collectsGo ? `，獲得 ${GO_SALARY} 份食物` : ""
-    }。`,
-  };
-
-  const movedState: MatchState = {
-    ...state,
-    players,
-    awaiting: isUnownedBuyable(state, landed.id) ? "buyOrSkip" : "end",
-    lastDice: dice,
-    events: [...state.events, event],
-  };
-
-  if (movedState.awaiting === "buyOrSkip") {
-    return { state: movedState };
+  if (player.inCage) {
+    return applyCageRoll(state, player, dice, intent.nowMs);
   }
 
-  return { state: chargeRentIfNeeded(movedState, player.id, landed, intent.nowMs) };
+  return movePlayerByDice(state, player.id, dice, intent.nowMs);
 }
 
 function applyBuyTerritory(
@@ -162,7 +145,7 @@ function applyBuyTerritory(
   return {
     state: {
       ...state,
-      awaiting: "end",
+      awaiting: "buildOrEnd",
       ownership: { ...state.ownership, [space.id]: { ownerId: player.id, buildings: 0 } },
       players: state.players.map((p) => (p.id === player.id ? { ...p, food: p.food - space.price } : p)),
       events: [...state.events, makeEvent(state, intent.nowMs, `${player.nickname} 買下 ${space.name}。`)],
@@ -184,8 +167,97 @@ function applySkipBuy(
   return {
     state: {
       ...state,
-      awaiting: "end",
+      awaiting: "buildOrEnd",
       events: [...state.events, makeEvent(state, intent.nowMs, "略過購買。")],
+    },
+  };
+}
+
+function applyBuildHouse(
+  state: MatchState,
+  intent: Extract<GameIntent, { type: "buildHouse" }>,
+): ApplyIntentResult {
+  if (state.awaiting !== "buildOrEnd" && state.awaiting !== "end") {
+    return { state, error: "目前不能建造" };
+  }
+  if (state.currentPlayerId !== intent.playerId) {
+    return { state, error: "不是目前玩家的回合" };
+  }
+
+  const player = state.players.find((p) => p.id === intent.playerId);
+  const space = BOARD.find((s) => s.id === intent.spaceId);
+  if (!player || player.bankrupt) return { state, error: "玩家不能行動" };
+  if (!space || space.kind !== "territory") return { state, error: "這格不能建造" };
+
+  const owner = state.ownership[space.id];
+  if (!owner || owner.ownerId !== player.id) {
+    return { state, error: "尚未擁有這格" };
+  }
+
+  const groupSpaces = BOARD.filter(
+    (candidate): candidate is Extract<BoardSpace, { kind: "territory" }> =>
+      candidate.kind === "territory" && candidate.group === space.group,
+  );
+  const groupOwnership = groupSpaces.map((groupSpace) => state.ownership[groupSpace.id]);
+  if (groupOwnership.some((owned) => owned?.ownerId !== player.id)) {
+    return { state, error: "需要擁有整組顏色" };
+  }
+  if (owner.buildings >= 5) {
+    return { state, error: "已達建造上限" };
+  }
+  if (player.food < space.houseCost) {
+    return { state, error: "食物不足" };
+  }
+
+  const minBuildings = Math.min(...groupOwnership.map((owned) => owned?.buildings ?? 0));
+  const nextBuildings = owner.buildings + 1;
+  if (nextBuildings > minBuildings + 1) {
+    return { state, error: "建築需要平均分配" };
+  }
+
+  return {
+    state: {
+      ...state,
+      awaiting: "buildOrEnd",
+      ownership: {
+        ...state.ownership,
+        [space.id]: { ...owner, buildings: nextBuildings as 1 | 2 | 3 | 4 | 5 },
+      },
+      players: state.players.map((p) => (p.id === player.id ? { ...p, food: p.food - space.houseCost } : p)),
+      events: [
+        ...state.events,
+        makeEvent(state, intent.nowMs, `${player.nickname} 在 ${space.name} 建造${nextBuildings === 5 ? "貓別墅" : "貓屋"}。`),
+      ],
+    },
+  };
+}
+
+function applyPayCageFine(
+  state: MatchState,
+  intent: Extract<GameIntent, { type: "payCageFine" }>,
+): ApplyIntentResult {
+  if (state.awaiting !== "roll") {
+    return { state, error: "目前不能支付罰金" };
+  }
+  if (state.currentPlayerId !== intent.playerId) {
+    return { state, error: "不是目前玩家的回合" };
+  }
+
+  const player = state.players.find((p) => p.id === intent.playerId);
+  if (!player || player.bankrupt) return { state, error: "玩家不能行動" };
+  if (!player.inCage) return { state, error: "玩家不在貓籠" };
+  if (player.food < CAGE_FINE) {
+    return bankruptPlayer(state, player.id, intent.nowMs, `${player.nickname} 無法支付貓籠罰金，破產。`);
+  }
+
+  return {
+    state: {
+      ...state,
+      awaiting: "roll",
+      players: state.players.map((p) =>
+        p.id === player.id ? { ...p, food: p.food - CAGE_FINE, inCage: false, cageTurnsSkipped: 0 } : p,
+      ),
+      events: [...state.events, makeEvent(state, intent.nowMs, `${player.nickname} 支付 ${CAGE_FINE} 份食物離開貓籠。`)],
     },
   };
 }
@@ -194,7 +266,7 @@ function applyEndTurn(
   state: MatchState,
   intent: Extract<GameIntent, { type: "endTurn" }>,
 ): ApplyIntentResult {
-  if (state.awaiting !== "end") {
+  if (state.awaiting !== "end" && state.awaiting !== "buildOrEnd") {
     return { state, error: "目前不能結束回合" };
   }
   if (state.currentPlayerId !== intent.playerId) {
@@ -223,6 +295,95 @@ function isUnownedBuyable(state: MatchState, spaceId: string): boolean {
 
 function isBuyableSpace(space: BoardSpace): space is Extract<BoardSpace, { kind: "territory" | "catTree" }> {
   return space.kind === "territory" || space.kind === "catTree";
+}
+
+function applyCageRoll(state: MatchState, player: PlayerPublic, dice: [number, number], nowMs: number): ApplyIntentResult {
+  if (dice[0] === dice[1]) {
+    const freedState: MatchState = {
+      ...state,
+      players: state.players.map((p) => (p.id === player.id ? { ...p, inCage: false, cageTurnsSkipped: 0 } : p)),
+    };
+    return movePlayerByDice(freedState, player.id, dice, nowMs, "離開貓籠，");
+  }
+
+  const skippedTurns = player.cageTurnsSkipped + 1;
+  if (skippedTurns < 3) {
+    return {
+      state: {
+        ...state,
+        awaiting: "buildOrEnd",
+        lastDice: dice,
+        players: state.players.map((p) => (p.id === player.id ? { ...p, cageTurnsSkipped: skippedTurns } : p)),
+        events: [
+          ...state.events,
+          makeEvent(state, nowMs, `${player.nickname} 沒有擲出雙骰，留在貓籠（第 ${skippedTurns} 次）。`),
+        ],
+      },
+    };
+  }
+
+  if (player.food < CAGE_FINE) {
+    return bankruptPlayer(state, player.id, nowMs, `${player.nickname} 無法支付貓籠罰金，破產。`);
+  }
+
+  const paidState: MatchState = {
+    ...state,
+    players: state.players.map((p) =>
+      p.id === player.id ? { ...p, food: p.food - CAGE_FINE, inCage: false, cageTurnsSkipped: 0 } : p,
+    ),
+  };
+  return movePlayerByDice(paidState, player.id, dice, nowMs, `支付 ${CAGE_FINE} 份食物離開貓籠，`);
+}
+
+function movePlayerByDice(
+  state: MatchState,
+  playerId: string,
+  dice: [number, number],
+  nowMs: number,
+  messagePrefix = "",
+): ApplyIntentResult {
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player) return { state, error: "玩家不能行動" };
+
+  const moveBy = dice[0] + dice[1];
+  const nextPosition = (player.position + moveBy) % BOARD_SIZE;
+  const collectsGo = player.position + moveBy >= BOARD_SIZE;
+  const landed = BOARD[nextPosition]!;
+  const cageSpace = BOARD.find((space) => space.kind === "cage")!;
+  const sentToCage = landed.kind === "goToCage";
+  const food = player.food + (collectsGo ? GO_SALARY : 0);
+  const players = state.players.map((p) =>
+    p.id === player.id
+      ? {
+          ...p,
+          position: sentToCage ? cageSpace.index : nextPosition,
+          food,
+          inCage: sentToCage ? true : p.inCage,
+          cageTurnsSkipped: sentToCage ? 0 : p.cageTurnsSkipped,
+        }
+      : p,
+  );
+  const event: GameEvent = {
+    id: `event-${nowMs}-${state.events.length + 1}`,
+    at: nowMs,
+    message: `${player.nickname} 擲出 ${dice[0]} + ${dice[1]}，${messagePrefix}移動到 ${landed.name}${
+      collectsGo ? `，獲得 ${GO_SALARY} 份食物` : ""
+    }${sentToCage ? `，被送到${cageSpace.name}` : ""}。`,
+  };
+
+  const movedState: MatchState = {
+    ...state,
+    players,
+    awaiting: isUnownedBuyable(state, landed.id) ? "buyOrSkip" : "buildOrEnd",
+    lastDice: dice,
+    events: [...state.events, event],
+  };
+
+  if (movedState.awaiting === "buyOrSkip" || sentToCage) {
+    return { state: movedState };
+  }
+
+  return { state: chargeRentIfNeeded(movedState, player.id, landed, nowMs) };
 }
 
 function chargeRentIfNeeded(state: MatchState, visitorId: string, space: BoardSpace, nowMs: number): MatchState {
@@ -286,6 +447,23 @@ function chargeRentIfNeeded(state: MatchState, visitorId: string, space: BoardSp
         `${visitor.nickname} 無法支付 ${rent} 份租金，破產並將資產轉給 ${creditor.nickname}。`,
       ),
     ],
+  };
+}
+
+function bankruptPlayer(state: MatchState, playerId: string, nowMs: number, message: string): ApplyIntentResult {
+  const players = state.players.map((p) =>
+    p.id === playerId ? { ...p, food: 0, bankrupt: true, inCage: false, cageTurnsSkipped: 0 } : p,
+  );
+  const winnerId = winnerFromPlayers(players);
+  return {
+    state: {
+      ...state,
+      awaiting: "buildOrEnd",
+      players,
+      winnerId,
+      phase: winnerId ? "finished" : state.phase,
+      events: [...state.events, makeEvent(state, nowMs, message)],
+    },
   };
 }
 
