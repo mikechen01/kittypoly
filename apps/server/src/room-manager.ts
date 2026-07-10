@@ -144,6 +144,10 @@ export class RoomManager {
     return room ? toPublicRoom(room) : null;
   }
 
+  playingRoomCodes(): string[] {
+    return [...this.rooms.values()].filter((room) => room.match?.phase === "playing").map((room) => room.code);
+  }
+
   private createPlayer(input: { nickname: string; avatar: CatAvatarId }): RoomPlayer {
     return {
       id: `player-${this.nextPlayerNumber++}`,

@@ -63,4 +63,22 @@ describe("RoomManager", () => {
     expect(room.match.currentPlayerId).toBe(created.playerId);
     expect(room.players.map((p) => p.nickname)).toEqual(["Mochi", "Luna"]);
   });
+
+  it("lists only rooms with an active match for ticking", () => {
+    let next = 0;
+    const manager = new RoomManager(() => (next++ % 16) / 16);
+    const lobby = manager.createRoom({ nickname: "Mochi", avatar: "tabby", nowMs: 1_000 });
+    const playing = manager.createRoom({ nickname: "Luna", avatar: "calico", nowMs: 2_000 });
+    manager.joinRoom({
+      code: playing.room.code,
+      nickname: "Kiki",
+      avatar: "black",
+      nowMs: 3_000,
+    });
+
+    manager.startGame(playing.room.code, playing.playerId, 4_000);
+
+    expect(manager.playingRoomCodes()).toEqual([playing.room.code]);
+    expect(manager.playingRoomCodes()).not.toContain(lobby.room.code);
+  });
 });
