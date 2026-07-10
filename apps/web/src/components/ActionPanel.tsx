@@ -10,9 +10,10 @@ interface ActionPanelProps {
   playerId: string;
   error: string | null;
   onIntent: (intent: Intent, spaceId?: string) => void;
+  embedded?: boolean;
 }
 
-export function ActionPanel({ room, playerId, error, onIntent }: ActionPanelProps) {
+export function ActionPanel({ room, playerId, error, onIntent, embedded = false }: ActionPanelProps) {
   const [selectedSpaceId, setSelectedSpaceId] = useState("");
   const [now, setNow] = useState(() => Date.now());
   const match = room.match;
@@ -43,16 +44,23 @@ export function ActionPanel({ room, playerId, error, onIntent }: ActionPanelProp
     }
   }, [buildables, selectedSpaceId]);
 
-  const diceLabel =
-    match.lastDice === null ? null : `骰子：${match.lastDice[0]} + ${match.lastDice[1]} = ${match.lastDice[0] + match.lastDice[1]}`;
+  const showDice = isMyTurn && match.lastDice !== null;
+  const diceLabel = showDice
+    ? `骰子：${match.lastDice![0]} + ${match.lastDice![1]} = ${match.lastDice![0] + match.lastDice![1]}`
+    : null;
 
   return (
-    <aside style={styles.panel}>
-      <p style={styles.eyebrow}>{isMyTurn ? "輪到你" : "等待中"}</p>
-      <h2 style={styles.title}>{currentPlayer?.nickname ?? "尚無行動玩家"}</h2>
+    <div style={embedded ? styles.embedded : styles.panel}>
+      <h3 style={styles.subheading}>操作</h3>
       <p style={styles.meta}>
-        狀態：<strong>{awaitingLabel(match.awaiting)}</strong>
-        {secondsLeft === null ? "" : ` · 剩餘 ${secondsLeft} 秒`}
+        {isMyTurn ? (
+          <>
+            輪到你 · <strong>{awaitingLabel(match.awaiting)}</strong>
+            {secondsLeft === null ? "" : ` · 剩餘 ${secondsLeft} 秒`}
+          </>
+        ) : (
+          <>等待 {currentPlayer?.nickname ?? "其他玩家"} 行動中</>
+        )}
       </p>
       {diceLabel ? <p style={styles.dice}>{diceLabel}</p> : null}
 
@@ -132,7 +140,7 @@ export function ActionPanel({ room, playerId, error, onIntent }: ActionPanelProp
       </div>
 
       {error ? <p style={styles.error}>{error}</p> : null}
-    </aside>
+    </div>
   );
 }
 
@@ -158,17 +166,13 @@ const styles = {
     display: "grid",
     gap: "0.8rem",
     padding: "1rem",
-    position: "sticky",
-    top: "1rem",
   },
-  eyebrow: {
-    color: "var(--accent)",
-    fontWeight: 900,
-    letterSpacing: "0.08em",
-    margin: 0,
-    textTransform: "uppercase",
+  embedded: {
+    display: "grid",
+    gap: "0.7rem",
   },
-  title: {
+  subheading: {
+    fontSize: "1rem",
     margin: 0,
   },
   meta: {
