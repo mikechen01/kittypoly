@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "test": "pnpm -r test",
+    "dev": "echo Run dev:server and dev:web in two terminals",
     "dev:server": "pnpm --filter @kittypoly/server dev",
     "dev:web": "pnpm --filter @kittypoly/web dev",
     "build": "pnpm -r build"
