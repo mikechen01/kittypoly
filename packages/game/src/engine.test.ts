@@ -213,6 +213,31 @@ describe("GameEngine move", () => {
     });
   });
 
+  it("auto-pays cage fine and leaves after a third failed non-doubles roll", () => {
+    let m = twoPlayerMatch();
+    m = {
+      ...m,
+      players: m.players.map((p) =>
+        p.id === "p1" ? { ...p, position: 10, inCage: true, cageTurnsSkipped: 2, food: 1500 } : p,
+      ),
+    };
+
+    const { state, error } = applyIntent(m, {
+      type: "rollDice",
+      playerId: "p1",
+      nowMs: 1_001,
+      dice: [1, 2],
+    });
+
+    expect(error).toBeUndefined();
+    expect(state.players.find((p) => p.id === "p1")!).toMatchObject({
+      position: 13,
+      inCage: false,
+      cageTurnsSkipped: 0,
+      food: 1450,
+    });
+  });
+
   it("bankrupts player who cannot pay rent and awards victory to last survivor", () => {
     let m = twoPlayerMatch();
     m = {
