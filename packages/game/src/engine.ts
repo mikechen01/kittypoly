@@ -41,7 +41,8 @@ export type GameIntent =
   | { type: "skipBuy"; playerId: string; nowMs: number }
   | { type: "buildHouse"; playerId: string; spaceId: string; nowMs: number }
   | { type: "payCageFine"; playerId: string; nowMs: number }
-  | { type: "endTurn"; playerId: string; nowMs: number };
+  | { type: "endTurn"; playerId: string; nowMs: number }
+  | { type: "tick"; nowMs: number };
 
 export interface ApplyIntentResult {
   state: MatchState;
@@ -98,7 +99,44 @@ export function applyIntent(state: MatchState, intent: GameIntent): ApplyIntentR
       return applyPayCageFine(state, intent);
     case "endTurn":
       return applyEndTurn(state, intent);
+    case "tick":
+      return applyTick(state, intent);
   }
+}
+
+function applyTick(state: MatchState, intent: Extract<GameIntent, { type: "tick" }>): ApplyIntentResult {
+  let current = state;
+
+  for (let i = 0; i < 20; i++) {
+    if (current.phase !== "playing" || current.winnerId || current.turnDeadlineMs === null) break;
+    if (intent.nowMs < current.turnDeadlineMs) break;
+
+    const playerId = current.currentPlayerId;
+    if (!playerId) break;
+
+    let result: ApplyIntentResult;
+    switch (current.awaiting) {
+      case "roll":
+        result = applyRollDice(addSystemEvent(current, intent.nowMs, "系統代行：逾時自動擲骰。"), {
+          type: "rollDice",
+          playerId,
+          nowMs: intent.nowMs,
+        });
+        break;
+      case "buyOrSkip":
+        result = applySkipBuy(current, { type: "skipBuy", playerId, nowMs: intent.nowMs });
+        break;
+      case "buildOrEnd":
+      case "end":
+        result = applyEndTurn(current, { type: "endTurn", playerId, nowMs: intent.nowMs });
+        break;
+    }
+
+    if (result.error) return result;
+    current = result.state;
+  }
+
+  return { state: current };
 }
 
 function applyRollDice(
@@ -651,5 +689,12 @@ function makeEvent(state: MatchState, nowMs: number, message: string): GameEvent
     id: `event-${nowMs}-${state.events.length + 1}`,
     at: nowMs,
     message,
+  };
+}
+
+function addSystemEvent(state: MatchState, nowMs: number, message: string): MatchState {
+  return {
+    ...state,
+    events: [...state.events, makeEvent(state, nowMs, message)],
   };
 }

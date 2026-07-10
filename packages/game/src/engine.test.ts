@@ -40,6 +40,20 @@ describe("GameEngine move", () => {
     expect(error).toBeDefined();
   });
 
+  it("auto-rolls and skips buy when turn deadline passes", () => {
+    let m = twoPlayerMatch();
+    m = { ...m, players: m.players.map((p) => (p.id === "p1" ? { ...p, position: 39 } : p)) };
+
+    const { state, error } = applyIntent(m, { type: "tick", nowMs: m.turnDeadlineMs! + 1 });
+
+    expect(error).toBeUndefined();
+    expect(state.events.some((e) => e.message.includes("系統代行"))).toBe(true);
+    expect(state.players.find((p) => p.id === "p1")!.position).toBe(1);
+    expect(state.ownership["sunny-window"]).toBeUndefined();
+    expect(state.currentPlayerId).toBe("p2");
+    expect(state.awaiting).toBe("roll");
+  });
+
   it("buys unowned territory and charges rent to visitor", () => {
     let m = twoPlayerMatch();
     m = { ...m, players: m.players.map((p) => ({ ...p, position: 39 })) };
