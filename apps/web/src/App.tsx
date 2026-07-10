@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import type { CSSProperties } from "react";
 import type { RoomPublic } from "@kittypoly/game";
 import { Home } from "./screens/Home";
 import { Lobby } from "./screens/Lobby";
+import { Match } from "./screens/Match";
+import { Results } from "./screens/Results";
 import { clearSession, loadSession } from "./state/session";
 import { KittyPolyClient } from "./ws/client";
 import type { ServerMessage } from "./ws/client";
@@ -43,6 +44,13 @@ export function App() {
     if (message.type === "welcome") setPlayerId(message.playerId);
   }
 
+  function handleClearSession(): void {
+    clearSession();
+    setRoom(null);
+    setPlayerId(null);
+    setError(null);
+  }
+
   if (!room || !playerId) {
     return (
       <Home
@@ -67,40 +75,15 @@ export function App() {
   }
 
   if (room.match.phase === "finished") {
-    return <Placeholder title="Results" room={room} />;
+    return <Results room={room} onClearSession={handleClearSession} />;
   }
 
-  return <Placeholder title="Match" room={room} />;
-}
-
-function Placeholder({ title, room }: { title: string; room: RoomPublic }) {
   return (
-    <main style={styles.shell}>
-      <section style={styles.card}>
-        <p style={styles.eyebrow}>Room {room.code}</p>
-        <h1>{title}</h1>
-        <p>{title} screen coming in the next task.</p>
-      </section>
-    </main>
+    <Match
+      room={room}
+      playerId={playerId}
+      error={error}
+      onIntent={(intent, spaceId) => client.send({ type: "intent", intent, spaceId })}
+    />
   );
 }
-
-const styles = {
-  shell: {
-    minHeight: "100vh",
-    display: "grid",
-    placeItems: "center",
-    padding: "2rem",
-  },
-  card: {
-    background: "white",
-    border: "var(--border)",
-    boxShadow: "8px 8px 0 var(--ink)",
-    padding: "2rem",
-  },
-  eyebrow: {
-    color: "var(--accent)",
-    fontWeight: 900,
-    textTransform: "uppercase",
-  },
-} satisfies Record<string, CSSProperties>;
