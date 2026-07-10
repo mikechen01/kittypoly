@@ -1,5 +1,7 @@
 import { BOARD, BOARD_SIZE } from "./board.js";
+import { SCRATCH_DECK, TEASER_DECK } from "./cards.js";
 import { rentDue } from "./economy.js";
+import type { CardDef, CardEffect } from "./cards.js";
 import type { BoardSpace, CatAvatarId, GameEvent, MatchPublic, PlayerPublic } from "./types.js";
 
 export const STARTING_FOOD = 1500;
@@ -11,8 +13,8 @@ export interface MatchState extends MatchPublic {
   phase: "playing" | "finished";
   players: PlayerPublic[];
   decks: {
-    scratch: [];
-    teaser: [];
+    scratch: CardDef[];
+    teaser: CardDef[];
     scratchIndex: number;
     teaserIndex: number;
   };
@@ -62,7 +64,12 @@ export function createMatch(input: CreateMatchInput): MatchState {
       connected: true,
     })),
     ownership: {},
-    decks: { scratch: [], teaser: [], scratchIndex: 0, teaserIndex: 0 },
+    decks: {
+      scratch: shuffleDeck(SCRATCH_DECK, input.rng),
+      teaser: shuffleDeck(TEASER_DECK, input.rng),
+      scratchIndex: 0,
+      teaserIndex: 0,
+    },
     currentPlayerId: input.playerIds[0] ?? null,
     turnDeadlineMs: input.nowMs + TURN_TIMER_MS,
     awaiting: "roll",
@@ -288,6 +295,15 @@ function rollDie(rng: () => number): number {
   return Math.floor(rng() * 6) + 1;
 }
 
+function shuffleDeck(deck: CardDef[], rng: () => number): CardDef[] {
+  const shuffled = [...deck];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j]!, shuffled[i]!];
+  }
+  return shuffled;
+}
+
 function isUnownedBuyable(state: MatchState, spaceId: string): boolean {
   const space = BOARD.find((s) => s.id === spaceId);
   return !!space && isBuyableSpace(space) && !state.ownership[spaceId];
@@ -379,11 +395,151 @@ function movePlayerByDice(
     events: [...state.events, event],
   };
 
+  if (landed.kind === "scratch" || landed.kind === "teaser") {
+    return { state: drawCardAndResolve(movedState, player.id, landed.kind, nowMs) };
+  }
+
   if (movedState.awaiting === "buyOrSkip" || sentToCage) {
     return { state: movedState };
   }
 
   return { state: chargeRentIfNeeded(movedState, player.id, landed, nowMs) };
+}
+
+function drawCardAndResolve(
+  state: MatchState,
+  playerId: string,
+  deckKind: "scratch" | "teaser",
+  nowMs: number,
+): MatchState {
+  const deck = state.decks[deckKind];
+  if (deck.length === 0) return finishCardLanding(state, playerId, nowMs);
+
+  const indexKey = deckKind === "scratch" ? "scratchIndex" : "teaserIndex";
+  const cardIndex = state.decks[indexKey] % deck.length;
+  const card = deck[cardIndex]!;
+  const nextState: MatchState = {
+    ...state,
+    decks: { ...state.decks, [indexKey]: (cardIndex + 1) % deck.length },
+    events: [...state.events, makeEvent(state, nowMs, card.text)],
+  };
+
+  return applyCardEffect(nextState, playerId, card.effect, nowMs);
+}
+
+function applyCardEffect(state: MatchState, playerId: string, effect: CardEffect, nowMs: number): MatchState {
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player || player.bankrupt) return state;
+
+  switch (effect.type) {
+    case "gainFood":
+      return finishCardLanding(
+        {
+          ...state,
+          players: state.players.map((p) => (p.id === player.id ? { ...p, food: p.food + effect.amount } : p)),
+        },
+        player.id,
+        nowMs,
+      );
+    case "loseFood":
+      return finishCardLanding(chargeBank(state, player.id, effect.amount, nowMs), player.id, nowMs);
+    case "moveTo": {
+      const targetIndex = clampBoardIndex(effect.index);
+      const collectsGo = effect.collectGo && targetIndex <= player.position;
+      return movePlayerFromCard(state, player.id, targetIndex, collectsGo, nowMs);
+    }
+    case "moveRelative": {
+      const rawIndex = player.position + effect.steps;
+      const targetIndex = clampBoardIndex(rawIndex);
+      const collectsGo = effect.steps > 0 && rawIndex >= BOARD_SIZE;
+      return movePlayerFromCard(state, player.id, targetIndex, collectsGo, nowMs);
+    }
+    case "goToCage":
+      return sendPlayerToCageFromCard(state, player.id, nowMs);
+    case "repair":
+      return finishCardLanding(chargeBank(state, player.id, repairCost(state, player.id, effect), nowMs), player.id, nowMs);
+  }
+}
+
+function movePlayerFromCard(state: MatchState, playerId: string, targetIndex: number, collectsGo: boolean, nowMs: number): MatchState {
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player) return state;
+  const movedState: MatchState = {
+    ...state,
+    players: state.players.map((p) =>
+      p.id === player.id
+        ? { ...p, position: targetIndex, food: p.food + (collectsGo ? GO_SALARY : 0), inCage: false, cageTurnsSkipped: 0 }
+        : p,
+    ),
+  };
+  return finishCardLanding(movedState, player.id, nowMs);
+}
+
+function sendPlayerToCageFromCard(state: MatchState, playerId: string, nowMs: number): MatchState {
+  const cageSpace = BOARD.find((space) => space.kind === "cage")!;
+  const cagedState: MatchState = {
+    ...state,
+    players: state.players.map((p) =>
+      p.id === playerId ? { ...p, position: cageSpace.index, inCage: true, cageTurnsSkipped: 0 } : p,
+    ),
+  };
+  return finishCardLanding(cagedState, playerId, nowMs);
+}
+
+function finishCardLanding(state: MatchState, playerId: string, nowMs: number): MatchState {
+  if (state.phase === "finished") return state;
+
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player || player.bankrupt) return state;
+
+  const landed = BOARD[player.position]!;
+  const landedState: MatchState = {
+    ...state,
+    awaiting: isUnownedBuyable(state, landed.id) ? "buyOrSkip" : "buildOrEnd",
+  };
+  if (landedState.awaiting === "buyOrSkip" || player.inCage || !isBuyableSpace(landed)) {
+    return landedState;
+  }
+
+  return chargeRentIfNeeded(landedState, player.id, landed, nowMs);
+}
+
+function chargeBank(state: MatchState, playerId: string, amount: number, nowMs: number): MatchState {
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player || amount <= 0) return state;
+  if (player.food >= amount) {
+    return {
+      ...state,
+      players: state.players.map((p) => (p.id === player.id ? { ...p, food: p.food - amount } : p)),
+    };
+  }
+
+  const players = state.players.map((p) =>
+    p.id === player.id ? { ...p, food: 0, bankrupt: true, inCage: false, cageTurnsSkipped: 0 } : p,
+  );
+  const ownership = Object.fromEntries(Object.entries(state.ownership).filter(([, owned]) => owned.ownerId !== player.id));
+  const winnerId = winnerFromPlayers(players);
+  return {
+    ...state,
+    ownership,
+    players,
+    winnerId,
+    phase: winnerId ? "finished" : state.phase,
+    events: [...state.events, makeEvent(state, nowMs, `${player.nickname} 無法支付 ${amount} 份食物給銀行，破產。`)],
+  };
+}
+
+function repairCost(state: MatchState, playerId: string, effect: Extract<CardEffect, { type: "repair" }>): number {
+  return Object.values(state.ownership).reduce((total, owned) => {
+    if (owned.ownerId !== playerId) return total;
+    const houses = owned.buildings === 5 ? 0 : owned.buildings;
+    const villas = owned.buildings === 5 ? 1 : 0;
+    return total + houses * effect.perHouse + villas * effect.perVilla;
+  }, 0);
+}
+
+function clampBoardIndex(index: number): number {
+  return ((index % BOARD_SIZE) + BOARD_SIZE) % BOARD_SIZE;
 }
 
 function chargeRentIfNeeded(state: MatchState, visitorId: string, space: BoardSpace, nowMs: number): MatchState {

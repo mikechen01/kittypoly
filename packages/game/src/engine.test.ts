@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createMatch, applyIntent } from "./engine.js";
+import type { CardDef } from "./cards.js";
 import type { MatchState } from "./engine.js";
 
 function twoPlayerMatch(): MatchState {
@@ -272,5 +273,96 @@ describe("GameEngine move", () => {
     });
     expect(blocked.error).toBeDefined();
     expect(blocked.state.phase).toBe("finished");
+  });
+
+  it("draws a scratch card, advances the deck, and applies gain food", () => {
+    const gainCard: CardDef = {
+      id: "test-gain-food",
+      deck: "scratch",
+      text: "在貓抓板底下翻到一包小魚乾。",
+      effect: { type: "gainFood", amount: 25 },
+    };
+    const nextCard: CardDef = {
+      id: "test-lose-food",
+      deck: "scratch",
+      text: "抓壞沙發，被扣零食。",
+      effect: { type: "loseFood", amount: 10 },
+    };
+    let m = twoPlayerMatch();
+    m = {
+      ...m,
+      decks: { ...m.decks, scratch: [nextCard, gainCard], scratchIndex: 1 },
+    };
+
+    const { state, error } = applyIntent(m, {
+      type: "rollDice",
+      playerId: "p1",
+      nowMs: 1_001,
+      dice: [1, 1],
+    });
+
+    expect(error).toBeUndefined();
+    expect(state.decks.scratchIndex).toBe(0);
+    expect(state.players.find((p) => p.id === "p1")!.food).toBe(1525);
+    expect(state.events.at(-1)?.message).toContain(gainCard.text);
+  });
+
+  it("draws a teaser go-to-cage card and sends the player to cage", () => {
+    const cageCard: CardDef = {
+      id: "test-go-to-cage",
+      deck: "teaser",
+      text: "追逗貓棒追到鑽進貓籠。",
+      effect: { type: "goToCage" },
+    };
+    let m = twoPlayerMatch();
+    m = {
+      ...m,
+      players: m.players.map((p) => (p.id === "p1" ? { ...p, position: 5 } : p)),
+      decks: { ...m.decks, teaser: [cageCard], teaserIndex: 0 },
+    };
+
+    const { state, error } = applyIntent(m, {
+      type: "rollDice",
+      playerId: "p1",
+      nowMs: 1_001,
+      dice: [1, 1],
+    });
+
+    expect(error).toBeUndefined();
+    expect(state.decks.teaserIndex).toBe(0);
+    expect(state.players.find((p) => p.id === "p1")!).toMatchObject({
+      position: 10,
+      inCage: true,
+    });
+    expect(state.events.at(-1)?.message).toContain(cageCard.text);
+  });
+
+  it("charges repair cards with buildings 1-4 as houses and 5 as a villa", () => {
+    const repairCard: CardDef = {
+      id: "test-repair",
+      deck: "teaser",
+      text: "檢修所有貓屋與貓別墅。",
+      effect: { type: "repair", perHouse: 10, perVilla: 100 },
+    };
+    let m = twoPlayerMatch();
+    m = {
+      ...m,
+      ownership: {
+        "sunny-window": { ownerId: "p1", buildings: 5 },
+        "cardboard-castle": { ownerId: "p1", buildings: 2 },
+      },
+      players: m.players.map((p) => (p.id === "p1" ? { ...p, position: 5 } : p)),
+      decks: { ...m.decks, teaser: [repairCard], teaserIndex: 0 },
+    };
+
+    const { state, error } = applyIntent(m, {
+      type: "rollDice",
+      playerId: "p1",
+      nowMs: 1_001,
+      dice: [1, 1],
+    });
+
+    expect(error).toBeUndefined();
+    expect(state.players.find((p) => p.id === "p1")!.food).toBe(1380);
   });
 });
