@@ -7,7 +7,7 @@ export const GO_SALARY = 200;
 export const TURN_TIMER_MS = 45_000;
 
 export interface MatchState extends MatchPublic {
-  phase: "playing";
+  phase: "playing" | "finished";
   players: PlayerPublic[];
   decks: {
     scratch: [];
@@ -71,6 +71,10 @@ export function createMatch(input: CreateMatchInput): MatchState {
 }
 
 export function applyIntent(state: MatchState, intent: GameIntent): ApplyIntentResult {
+  if (state.winnerId || state.phase === "finished") {
+    return { state, error: "對局已結束" };
+  }
+
   switch (intent.type) {
     case "rollDice":
       return applyRollDice(state, intent);
@@ -273,6 +277,7 @@ function chargeRentIfNeeded(state: MatchState, visitorId: string, space: BoardSp
     ownership,
     players,
     winnerId,
+    phase: winnerId ? "finished" : state.phase,
     events: [
       ...state.events,
       makeEvent(

@@ -97,5 +97,15 @@ describe("GameEngine move", () => {
     expect(state.players.find((p) => p.id === "p2")!.bankrupt).toBe(true);
     expect(state.ownership["sunny-window"]).toEqual({ ownerId: "p1", buildings: 5 });
     expect(state.winnerId).toBe("p1");
+    expect(state.phase).toBe("finished");
+
+    const blocked = applyIntent(state, {
+      type: "rollDice",
+      playerId: "p1",
+      nowMs: 1_002,
+      dice: [1, 1],
+    });
+    expect(blocked.error).toBeDefined();
+    expect(blocked.state.phase).toBe("finished");
   });
 });
