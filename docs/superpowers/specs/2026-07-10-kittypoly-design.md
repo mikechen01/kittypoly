@@ -1,7 +1,7 @@
 # KittyPoly Design Spec
 
 **Date:** 2026-07-10  
-**Status:** Draft for user review  
+**Status:** Implemented MVP + playtest UX recorded  
 **Related:** [CONTEXT.md](../../../CONTEXT.md), [ADR 0001](../../adr/0001-react-node-websocket-authoritative.md)
 
 ## Goal
@@ -51,14 +51,28 @@ apps/web (React/Vite)  ←WebSocket→  apps/server (Node)
 
 1. **Home** — create room / join with room code + nickname  
 2. **Lobby** — show code, seats, pick cat avatar; host kicks / starts (≥2)  
-3. **Match** — 40-space board (comic style), turn UI, 貓糧, actions, event log  
+3. **Match** — 40-space board (comic style), turn UI, 貓糧, actions, personal event feed  
 4. **Results** — winner; return home  
 
 Match loop: roll → move → resolve tile (buy / rent / card / cage / …) → optional build → end turn → until one player left.
 
+### Match layout (playtest)
+
+- **Right column (sticky):** self status card on top; other players stacked directly below it. Board stays left.  
+- **Self card:** nickname, position (Chinese space name), 貓糧, actions; plus **events that mention this player’s nickname** (last ~12, newest first).  
+- **Card draws:** engine logs `{nickname} 抽到貓抓板|逗貓棒：{card text}` so scratch/teaser events appear on the drawer’s self card.  
+- **Amount colors in self-card events:** income amounts (獲得; rent received as `支付 … 給 {me}`) in **blue**; expense amounts (支付 / 賠償 / 無法支付) in **red**.  
+- Dice result shown from `MatchPublic.lastDice`. Build UI picks owned territory by Chinese name (no raw `spaceId` typing).
+
+### Buy / build (locked after playtest)
+
+- First landing on an unowned buyable space → **buy or skip only**; cannot build that same turn (`awaiting: "end"` after buy/skip).  
+- Later landing on **own** territory → may build **one** level (貓屋 upgrade / 貓別墅); no color-set monopoly required.  
+- After build → `awaiting: "end"`.
+
 Mobile: prioritize action panel + focus on current space; full ring board is secondary.
 
-Bankrupt players stay as spectators of the event log (no actions).
+Bankrupt players stay as spectators (no actions); self card still shows relevant events.
 
 ## State & sync
 

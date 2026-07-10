@@ -783,6 +783,18 @@ git commit -am "feat(web): match board, actions, and results"
 
 ---
 
+### Post-MVP playtest UX (recorded 2026-07-10)
+
+Shipped after Task 11; see design spec **Match layout** / **Buy / build**:
+
+- Self card top-right; other players under it (not full-width under the board).  
+- Personal event feed (nickname filter) instead of a global EventLog on Match; card draws include nickname + deck label.  
+- Income/expense amount coloring on the self-card feed.  
+- Buy on first visit only; build one level on a later visit to owned territory.  
+- Show dice + Chinese space names; build via territory dropdown.
+
+---
+
 ### Task 12: README + run scripts polish
 
 **Files:**

@@ -345,7 +345,9 @@ describe("GameEngine move", () => {
     expect(error).toBeUndefined();
     expect(state.decks.scratchIndex).toBe(0);
     expect(state.players.find((p) => p.id === "p1")!.food).toBe(1525);
+    expect(state.events.at(-1)?.message).toContain("抽到貓抓板");
     expect(state.events.at(-1)?.message).toContain(gainCard.text);
+    expect(state.events.at(-1)?.message).toContain(state.players.find((p) => p.id === "p1")!.nickname);
   });
 
   it("draws a teaser go-to-cage card and sends the player to cage", () => {

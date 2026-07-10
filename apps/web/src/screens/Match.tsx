@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { type CSSProperties, type ReactNode } from "react";
 import { BOARD, type GameEvent, type RoomPublic } from "@kittypoly/game";
 import { ActionPanel } from "../components/ActionPanel";
 import { Board } from "../components/Board";
@@ -24,76 +24,78 @@ export function Match({ room, playerId, error, onIntent }: MatchProps) {
     <main style={styles.shell}>
       <div style={styles.top}>
         <Board room={room} />
-        <section style={styles.selfCard} aria-label="我的資訊">
-          <p style={styles.eyebrow}>我的狀態</p>
-          <h2 style={styles.selfTitle}>{me?.nickname ?? "玩家"}</h2>
-          {me ? (
-            <>
-              <p style={styles.location}>
-                現在位置：{me.inCage ? `貓籠（原格：${mySpaceName}）` : mySpaceName}
-              </p>
-              <p style={styles.meta}>
-                {avatarLabel(me.avatar)} · {me.food} 貓糧
-                {me.bankrupt ? " · 已破產" : ""}
-              </p>
-            </>
-          ) : null}
+        <div style={styles.side}>
+          <section style={styles.selfCard} aria-label="我的資訊">
+            <p style={styles.eyebrow}>我的狀態</p>
+            <h2 style={styles.selfTitle}>{me?.nickname ?? "玩家"}</h2>
+            {me ? (
+              <>
+                <p style={styles.location}>
+                  現在位置：{me.inCage ? `貓籠（原格：${mySpaceName}）` : mySpaceName}
+                </p>
+                <p style={styles.meta}>
+                  {avatarLabel(me.avatar)} · {me.food} 貓糧
+                  {me.bankrupt ? " · 已破產" : ""}
+                </p>
+              </>
+            ) : null}
 
-          <div style={styles.divider} />
+            <div style={styles.divider} />
 
-          <h3 style={styles.subheading}>與我有關的事件</h3>
-          {myEvents.length ? (
-            <ol style={styles.eventList}>
-              {myEvents.map((event) => (
-                <li key={event.id} style={styles.eventItem}>
-                  <time style={styles.time}>{new Date(event.at).toLocaleTimeString()}</time>
-                  <span>{event.message}</span>
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <p style={styles.empty}>還沒有與你有關的事件。</p>
-          )}
+            <h3 style={styles.subheading}>與我有關的事件</h3>
+            {myEvents.length ? (
+              <ol style={styles.eventList}>
+                {myEvents.map((event) => (
+                  <li key={event.id} style={styles.eventItem}>
+                    <time style={styles.time}>{new Date(event.at).toLocaleTimeString()}</time>
+                    <span>{renderEventMessage(event.message, me?.nickname ?? "")}</span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p style={styles.empty}>還沒有與你有關的事件。</p>
+            )}
 
-          <div style={styles.divider} />
+            <div style={styles.divider} />
 
-          <ActionPanel room={room} playerId={playerId} error={error} onIntent={onIntent} embedded />
-        </section>
-      </div>
+            <ActionPanel room={room} playerId={playerId} error={error} onIntent={onIntent} embedded />
+          </section>
 
-      <section style={styles.othersCard} aria-label="其他玩家">
-        <h2 style={styles.heading}>其他玩家</h2>
-        <div style={styles.players}>
-          {others.length ? (
-            others.map((player) => {
-              const space = BOARD[player.position];
-              const spaceName = space?.name ?? `第 ${player.position} 格`;
-              return (
-                <article
-                  key={player.id}
-                  style={{
-                    ...styles.player,
-                    ...(player.id === room.match.currentPlayerId ? styles.activePlayer : {}),
-                    ...(player.bankrupt ? styles.bankruptPlayer : {}),
-                  }}
-                >
-                  <strong>{player.nickname}</strong>
-                  <span style={styles.location}>
-                    現在位置：{player.inCage ? `貓籠（原格：${spaceName}）` : spaceName}
-                  </span>
-                  <span style={styles.meta}>
-                    {avatarLabel(player.avatar)} · {player.food} 貓糧
-                    {player.bankrupt ? " · 已破產" : ""}
-                    {player.id === room.match.currentPlayerId ? " · 行動中" : ""}
-                  </span>
-                </article>
-              );
-            })
-          ) : (
-            <p style={styles.empty}>目前沒有其他玩家。</p>
-          )}
+          <section style={styles.othersCard} aria-label="其他玩家">
+            <h2 style={styles.heading}>其他玩家</h2>
+            <div style={styles.players}>
+              {others.length ? (
+                others.map((player) => {
+                  const space = BOARD[player.position];
+                  const spaceName = space?.name ?? `第 ${player.position} 格`;
+                  return (
+                    <article
+                      key={player.id}
+                      style={{
+                        ...styles.player,
+                        ...(player.id === room.match.currentPlayerId ? styles.activePlayer : {}),
+                        ...(player.bankrupt ? styles.bankruptPlayer : {}),
+                      }}
+                    >
+                      <strong>{player.nickname}</strong>
+                      <span style={styles.location}>
+                        現在位置：{player.inCage ? `貓籠（原格：${spaceName}）` : spaceName}
+                      </span>
+                      <span style={styles.meta}>
+                        {avatarLabel(player.avatar)} · {player.food} 貓糧
+                        {player.bankrupt ? " · 已破產" : ""}
+                        {player.id === room.match.currentPlayerId ? " · 行動中" : ""}
+                      </span>
+                    </article>
+                  );
+                })
+              ) : (
+                <p style={styles.empty}>目前沒有其他玩家。</p>
+              )}
+            </div>
+          </section>
         </div>
-      </section>
+      </div>
     </main>
   );
 }
@@ -101,6 +103,50 @@ export function Match({ room, playerId, error, onIntent }: MatchProps) {
 function filterMyEvents(events: GameEvent[], nickname: string): GameEvent[] {
   if (!nickname) return [];
   return events.filter((event) => event.message.includes(nickname)).slice(-12).reverse();
+}
+
+/** 收入金額藍色、支出金額紅色；收到租金對自己算收入。 */
+function renderEventMessage(message: string, nickname: string): ReactNode {
+  const amountPattern = /(獲得|支付|賠償|無法支付)\s*(\d+)/g;
+  const nodes: ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+
+  while ((match = amountPattern.exec(message)) !== null) {
+    const [full, verb, amount] = match;
+    nodes.push(message.slice(lastIndex, match.index));
+    nodes.push(`${verb} `);
+
+    const polarity = amountPolarity(message, nickname, verb);
+    nodes.push(
+      <span
+        key={key++}
+        style={{
+          color: polarity === "income" ? "#1d4ed8" : "#dc2626",
+          fontWeight: 900,
+        }}
+      >
+        {amount}
+      </span>,
+    );
+    lastIndex = match.index + full.length;
+  }
+
+  nodes.push(message.slice(lastIndex));
+  return nodes;
+}
+
+function amountPolarity(
+  message: string,
+  nickname: string,
+  verb: string,
+): "income" | "expense" {
+  if (verb === "獲得") return "income";
+  if (verb === "支付" && nickname && message.includes(`給 ${nickname}`) && !message.startsWith(nickname)) {
+    return "income";
+  }
+  return "expense";
 }
 
 function avatarLabel(avatar: RoomPublic["players"][number]["avatar"]): string {
@@ -129,16 +175,20 @@ const styles = {
     gap: "1.25rem",
     gridTemplateColumns: "minmax(0, 1fr) minmax(18rem, 26rem)",
   },
-  selfCard: {
+  side: {
     alignSelf: "start",
+    display: "grid",
+    gap: "1rem",
+    position: "sticky",
+    top: "1rem",
+  },
+  selfCard: {
     background: "white",
     border: "var(--border)",
     boxShadow: "6px 6px 0 var(--ink)",
     display: "grid",
     gap: "0.75rem",
     padding: "1rem",
-    position: "sticky",
-    top: "1rem",
   },
   othersCard: {
     background: "white",
@@ -166,7 +216,6 @@ const styles = {
   players: {
     display: "grid",
     gap: "0.6rem",
-    gridTemplateColumns: "repeat(auto-fit, minmax(14rem, 1fr))",
   },
   player: {
     border: "var(--border)",

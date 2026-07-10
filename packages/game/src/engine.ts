@@ -453,13 +453,20 @@ function drawCardAndResolve(
   const deck = state.decks[deckKind];
   if (deck.length === 0) return finishCardLanding(state, playerId, nowMs);
 
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player) return finishCardLanding(state, playerId, nowMs);
+
   const indexKey = deckKind === "scratch" ? "scratchIndex" : "teaserIndex";
   const cardIndex = state.decks[indexKey] % deck.length;
   const card = deck[cardIndex]!;
+  const deckLabel = deckKind === "scratch" ? "貓抓板" : "逗貓棒";
   const nextState: MatchState = {
     ...state,
     decks: { ...state.decks, [indexKey]: (cardIndex + 1) % deck.length },
-    events: [...state.events, makeEvent(state, nowMs, card.text)],
+    events: [
+      ...state.events,
+      makeEvent(state, nowMs, `${player.nickname} 抽到${deckLabel}：${card.text}`),
+    ],
   };
 
   return applyCardEffect(nextState, playerId, card.effect, nowMs);
