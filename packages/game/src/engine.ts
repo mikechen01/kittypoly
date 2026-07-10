@@ -189,7 +189,7 @@ function applyBuyTerritory(
   return {
     state: {
       ...state,
-      awaiting: "buildOrEnd",
+      awaiting: "end",
       ownership: { ...state.ownership, [space.id]: { ownerId: player.id, buildings: 0 } },
       players: state.players.map((p) => (p.id === player.id ? { ...p, food: p.food - space.price } : p)),
       events: [...state.events, makeEvent(state, intent.nowMs, `${player.nickname} 買下 ${space.name}。`)],
@@ -211,7 +211,7 @@ function applySkipBuy(
   return {
     state: {
       ...state,
-      awaiting: "buildOrEnd",
+      awaiting: "end",
       events: [...state.events, makeEvent(state, intent.nowMs, "略過購買。")],
     },
   };
@@ -221,7 +221,7 @@ function applyBuildHouse(
   state: MatchState,
   intent: Extract<GameIntent, { type: "buildHouse" }>,
 ): ApplyIntentResult {
-  if (state.awaiting !== "buildOrEnd" && state.awaiting !== "end") {
+  if (state.awaiting !== "buildOrEnd") {
     return { state, error: "目前不能建造" };
   }
   if (state.currentPlayerId !== intent.playerId) {
@@ -252,7 +252,7 @@ function applyBuildHouse(
   return {
     state: {
       ...state,
-      awaiting: "buildOrEnd",
+      awaiting: "end",
       ownership: {
         ...state.ownership,
         [space.id]: { ...owner, buildings: nextBuildings as 1 | 2 | 3 | 4 | 5 },
@@ -336,6 +336,17 @@ function isUnownedBuyable(state: MatchState, spaceId: string): boolean {
   return !!space && isBuyableSpace(space) && !state.ownership[spaceId];
 }
 
+function awaitingAfterLanding(
+  state: MatchState,
+  space: BoardSpace,
+  playerId: string,
+): MatchState["awaiting"] {
+  if (isUnownedBuyable(state, space.id)) return "buyOrSkip";
+  const owner = state.ownership[space.id];
+  if (space.kind === "territory" && owner?.ownerId === playerId) return "buildOrEnd";
+  return "end";
+}
+
 function isBuyableSpace(space: BoardSpace): space is Extract<BoardSpace, { kind: "territory" | "catTree" }> {
   return space.kind === "territory" || space.kind === "catTree";
 }
@@ -354,7 +365,7 @@ function applyCageRoll(state: MatchState, player: PlayerPublic, dice: [number, n
     return {
       state: {
         ...state,
-        awaiting: "buildOrEnd",
+        awaiting: "end",
         lastDice: dice,
         players: state.players.map((p) => (p.id === player.id ? { ...p, cageTurnsSkipped: skippedTurns } : p)),
         events: [
@@ -417,7 +428,7 @@ function movePlayerByDice(
   const movedState: MatchState = {
     ...state,
     players,
-    awaiting: isUnownedBuyable(state, landed.id) ? "buyOrSkip" : "buildOrEnd",
+    awaiting: sentToCage ? "end" : awaitingAfterLanding(state, landed, player.id),
     lastDice: dice,
     events: [...state.events, event],
   };
@@ -522,7 +533,7 @@ function finishCardLanding(state: MatchState, playerId: string, nowMs: number): 
   const landed = BOARD[player.position]!;
   const landedState: MatchState = {
     ...state,
-    awaiting: isUnownedBuyable(state, landed.id) ? "buyOrSkip" : "buildOrEnd",
+    awaiting: player.inCage ? "end" : awaitingAfterLanding(state, landed, player.id),
   };
   if (landedState.awaiting === "buyOrSkip" || player.inCage || !isBuyableSpace(landed)) {
     return landedState;
@@ -641,7 +652,7 @@ function bankruptPlayer(state: MatchState, playerId: string, nowMs: number, mess
   return {
     state: {
       ...state,
-      awaiting: "buildOrEnd",
+      awaiting: "end",
       players,
       winnerId,
       phase: winnerId ? "finished" : state.phase,

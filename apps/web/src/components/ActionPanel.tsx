@@ -85,7 +85,7 @@ export function ActionPanel({ room, playerId, error, onIntent }: ActionPanelProp
             {match.awaiting === "buildOrEnd" ? (
               <>
                 <p style={styles.hint}>
-                  走到自己的領地時可蓋貓屋／貓別墅（只蓋目前停靠的那一格，不必集齊同色）。
+                  第一次買地當回合不能蓋房；之後再走到自己的領地，才能蓋 1 間貓屋／升級。
                 </p>
                 {buildables.length > 0 ? (
                   <label style={styles.label}>
@@ -104,7 +104,7 @@ export function ActionPanel({ room, playerId, error, onIntent }: ActionPanelProp
                   </label>
                 ) : (
                   <p style={styles.wait}>
-                    目前不能建造：要停在自己擁有的領地上才可以蓋。
+                    目前不能建造：要再次停在自己擁有的領地上才可以蓋 1 間。
                   </p>
                 )}
                 <button

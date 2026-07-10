@@ -85,7 +85,7 @@ describe("GameEngine move", () => {
     expect(result.error).toBeUndefined();
     expect(result.state.players.find((p) => p.id === "p1")!.food).toBe(1642);
     expect(result.state.players.find((p) => p.id === "p2")!.food).toBe(1698);
-    expect(result.state.awaiting).toBe("buildOrEnd");
+    expect(result.state.awaiting).toBe("end");
   });
 
   it("scales cat tree rent by the owner's cat tree count when landed on", () => {
@@ -115,6 +115,59 @@ describe("GameEngine move", () => {
     expect(state.players.find((p) => p.id === "p2")!.food).toBe(1400);
   });
 
+  it("allows one house only on a later visit to owned territory, not right after buying", () => {
+    let m = twoPlayerMatch();
+    m = { ...m, players: m.players.map((p) => ({ ...p, position: 39 })) };
+
+    let result = applyIntent(m, {
+      type: "rollDice",
+      playerId: "p1",
+      nowMs: 1_001,
+      dice: [1, 1],
+    });
+    result = applyIntent(result.state, { type: "buyTerritory", playerId: "p1", nowMs: 1_002 });
+    expect(result.state.awaiting).toBe("end");
+    expect(
+      applyIntent(result.state, {
+        type: "buildHouse",
+        playerId: "p1",
+        spaceId: "sunny-window",
+        nowMs: 1_003,
+      }).error,
+    ).toBeDefined();
+
+    m = {
+      ...result.state,
+      awaiting: "roll",
+      players: result.state.players.map((p) => (p.id === "p1" ? { ...p, position: 39 } : p)),
+    };
+    result = applyIntent(m, {
+      type: "rollDice",
+      playerId: "p1",
+      nowMs: 1_006,
+      dice: [1, 1],
+    });
+    expect(result.state.awaiting).toBe("buildOrEnd");
+
+    result = applyIntent(result.state, {
+      type: "buildHouse",
+      playerId: "p1",
+      spaceId: "sunny-window",
+      nowMs: 1_007,
+    });
+    expect(result.error).toBeUndefined();
+    expect(result.state.ownership["sunny-window"]!.buildings).toBe(1);
+    expect(result.state.awaiting).toBe("end");
+    expect(
+      applyIntent(result.state, {
+        type: "buildHouse",
+        playerId: "p1",
+        spaceId: "sunny-window",
+        nowMs: 1_008,
+      }).error,
+    ).toBeDefined();
+  });
+
   it("builds on the owned territory the player is standing on", () => {
     let m = twoPlayerMatch();
     m = {
@@ -141,15 +194,7 @@ describe("GameEngine move", () => {
     expect(result.error).toBeUndefined();
     expect(result.state.ownership["sunny-window"]!.buildings).toBe(1);
     expect(result.state.players.find((p) => p.id === "p1")!.food).toBe(450);
-
-    result = applyIntent(result.state, {
-      type: "buildHouse",
-      playerId: "p1",
-      spaceId: "sunny-window",
-      nowMs: 1_003,
-    });
-    expect(result.error).toBeUndefined();
-    expect(result.state.ownership["sunny-window"]!.buildings).toBe(2);
+    expect(result.state.awaiting).toBe("end");
   });
 
   it("sends a player to cage without GO salary when landing on go to cage", () => {
@@ -168,7 +213,7 @@ describe("GameEngine move", () => {
     expect(p1.position).toBe(10);
     expect(p1.inCage).toBe(true);
     expect(p1.food).toBe(1500);
-    expect(state.awaiting).toBe("buildOrEnd");
+    expect(state.awaiting).toBe("end");
   });
 
   it("leaves cage with doubles or by paying the fine before rolling", () => {
