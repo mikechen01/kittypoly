@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import type { RoomPublic } from "@kittypoly/game";
+import { BOARD, type RoomPublic } from "@kittypoly/game";
 import { ActionPanel } from "../components/ActionPanel";
 import { Board } from "../components/Board";
 import { EventLog } from "../components/EventLog";
@@ -22,26 +22,34 @@ export function Match({ room, playerId, error, onIntent }: MatchProps) {
         <div style={styles.side}>
           <ActionPanel room={room} playerId={playerId} error={error} onIntent={onIntent} />
           <section style={styles.card}>
-            <h2 style={styles.heading}>Players</h2>
+            <h2 style={styles.heading}>玩家</h2>
             <div style={styles.players}>
-              {room.players.map((player) => (
-                <article
-                  key={player.id}
-                  style={{
-                    ...styles.player,
-                    ...(player.id === room.match.currentPlayerId ? styles.activePlayer : {}),
-                    ...(player.bankrupt ? styles.bankruptPlayer : {}),
-                  }}
-                >
-                  <strong>
-                    {player.nickname} {player.id === playerId ? "(you)" : ""}
-                  </strong>
-                  <span style={styles.meta}>
-                    {player.avatar} · {player.food} food · space {player.position}
-                    {player.inCage ? " · in cage" : ""}
-                  </span>
-                </article>
-              ))}
+              {room.players.map((player) => {
+                const space = BOARD[player.position];
+                const spaceName = space?.name ?? `第 ${player.position} 格`;
+                const isYou = player.id === playerId;
+                return (
+                  <article
+                    key={player.id}
+                    style={{
+                      ...styles.player,
+                      ...(player.id === room.match.currentPlayerId ? styles.activePlayer : {}),
+                      ...(player.bankrupt ? styles.bankruptPlayer : {}),
+                    }}
+                  >
+                    <strong>
+                      {player.nickname} {isYou ? "（你）" : ""}
+                    </strong>
+                    <span style={styles.location}>
+                      現在位置：{player.inCage ? `貓籠（原格：${spaceName}）` : spaceName}
+                    </span>
+                    <span style={styles.meta}>
+                      {avatarLabel(player.avatar)} · {player.food} 貓糧
+                      {player.bankrupt ? " · 已破產" : ""}
+                    </span>
+                  </article>
+                );
+              })}
             </div>
           </section>
         </div>
@@ -49,6 +57,19 @@ export function Match({ room, playerId, error, onIntent }: MatchProps) {
       <EventLog events={room.match.events} />
     </main>
   );
+}
+
+function avatarLabel(avatar: RoomPublic["players"][number]["avatar"]): string {
+  switch (avatar) {
+    case "tabby":
+      return "虎斑";
+    case "calico":
+      return "三花";
+    case "black":
+      return "黑貓";
+    case "white":
+      return "白貓";
+  }
 }
 
 const styles = {
@@ -94,10 +115,13 @@ const styles = {
     opacity: 0.45,
     textDecoration: "line-through",
   },
+  location: {
+    fontWeight: 900,
+    margin: 0,
+  },
   meta: {
     color: "var(--info)",
     fontSize: "0.9rem",
     fontWeight: 800,
-    textTransform: "capitalize",
   },
 } satisfies Record<string, CSSProperties>;

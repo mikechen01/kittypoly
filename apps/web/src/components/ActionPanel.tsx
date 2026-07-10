@@ -83,6 +83,9 @@ export function ActionPanel({ room, playerId, error, onIntent }: ActionPanelProp
 
             {match.awaiting === "buildOrEnd" ? (
               <>
+                <p style={styles.hint}>
+                  像大富翁一樣：集齊同色整組領地後，可在回合內蓋貓屋／貓別墅（不必剛好停在那一格）。
+                </p>
                 {buildables.length > 0 ? (
                   <label style={styles.label}>
                     蓋貓屋／貓別墅
@@ -99,7 +102,9 @@ export function ActionPanel({ room, playerId, error, onIntent }: ActionPanelProp
                     </select>
                   </label>
                 ) : (
-                  <p style={styles.wait}>目前沒有可建造的領地（需擁有整組顏色）。</p>
+                  <p style={styles.wait}>
+                    目前不能建造：需要先擁有同一顏色的全部領地，才能蓋貓屋。
+                  </p>
                 )}
                 <button
                   type="button"
@@ -203,6 +208,12 @@ const styles = {
   wait: {
     color: "var(--info)",
     fontWeight: 800,
+    margin: 0,
+  },
+  hint: {
+    color: "var(--ink)",
+    fontSize: "0.92rem",
+    fontWeight: 700,
     margin: 0,
   },
   error: {
