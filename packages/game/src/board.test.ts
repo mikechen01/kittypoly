@@ -14,6 +14,12 @@ describe("board", () => {
     expect(BOARD.filter((s) => s.kind === "cage").length).toBe(1);
     expect(BOARD.filter((s) => s.kind === "goToCage").length).toBe(1);
     expect(BOARD.filter((s) => s.kind === "catTree")).toHaveLength(4);
-    expect(BOARD.filter((s) => s.kind === "territory").length).toBeGreaterThanOrEqual(22);
+    expect(BOARD.filter((s) => s.kind === "territory")).toHaveLength(22);
+  });
+
+  it("keeps index aligned with array position", () => {
+    BOARD.forEach((space, i) => {
+      expect(space.index).toBe(i);
+    });
   });
 });
