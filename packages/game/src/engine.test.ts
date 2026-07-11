@@ -428,6 +428,51 @@ describe("GameEngine move", () => {
     expect(state.events.some((e) => e.message.includes("移動到 貓薄荷補給站"))).toBe(true);
   });
 
+  it("draws a teaser card when a scratch move card lands on 逗貓棒", () => {
+    const forwardToTeaser: CardDef = {
+      id: "test-forward-to-teaser",
+      deck: "scratch",
+      text: "磨完爪往前巡邏五格。",
+      effect: { type: "moveRelative", steps: 5 },
+    };
+    const teaserGain: CardDef = {
+      id: "test-teaser-gain",
+      deck: "teaser",
+      text: "逗貓棒表演大成功，獲得 75 份食物。",
+      effect: { type: "gainFood", amount: 75 },
+    };
+    let m = twoPlayerMatch();
+    // index 0 + 1+1 = 2 貓抓板；+5 → 7 逗貓棒
+    m = {
+      ...m,
+      players: m.players.map((p) => (p.id === "p1" ? { ...p, position: 0, food: 1500 } : p)),
+      decks: {
+        ...m.decks,
+        scratch: [forwardToTeaser],
+        scratchIndex: 0,
+        teaser: [teaserGain],
+        teaserIndex: 0,
+      },
+    };
+
+    const { state, error } = applyIntent(m, {
+      type: "rollDice",
+      playerId: "p1",
+      nowMs: 1_001,
+      dice: [1, 1],
+    });
+
+    expect(error).toBeUndefined();
+    expect(state.players.find((p) => p.id === "p1")!).toMatchObject({
+      position: 7,
+      food: 1575,
+    });
+    expect(state.events.some((e) => e.message.includes("移動到 貓抓板"))).toBe(true);
+    expect(state.events.some((e) => e.message.includes("抽到貓抓板"))).toBe(true);
+    expect(state.events.some((e) => e.message.includes("移動到 逗貓棒"))).toBe(true);
+    expect(state.events.some((e) => e.message.includes("抽到逗貓棒"))).toBe(true);
+  });
+
   it("charges repair cards with buildings 1-4 as houses and 5 as a villa", () => {
     const repairCard: CardDef = {
       id: "test-repair",

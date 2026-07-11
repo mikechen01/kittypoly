@@ -449,6 +449,7 @@ function drawCardAndResolve(
   playerId: string,
   deckKind: "scratch" | "teaser",
   nowMs: number,
+  depth = 0,
 ): MatchState {
   const deck = state.decks[deckKind];
   if (deck.length === 0) return finishCardLanding(state, playerId, nowMs);
@@ -469,10 +470,16 @@ function drawCardAndResolve(
     ],
   };
 
-  return applyCardEffect(nextState, playerId, card.effect, nowMs);
+  return applyCardEffect(nextState, playerId, card.effect, nowMs, depth);
 }
 
-function applyCardEffect(state: MatchState, playerId: string, effect: CardEffect, nowMs: number): MatchState {
+function applyCardEffect(
+  state: MatchState,
+  playerId: string,
+  effect: CardEffect,
+  nowMs: number,
+  depth = 0,
+): MatchState {
   const player = state.players.find((p) => p.id === playerId);
   if (!player || player.bankrupt) return state;
 
@@ -491,13 +498,13 @@ function applyCardEffect(state: MatchState, playerId: string, effect: CardEffect
     case "moveTo": {
       const targetIndex = clampBoardIndex(effect.index);
       const collectsGo = effect.collectGo && targetIndex <= player.position;
-      return movePlayerFromCard(state, player.id, targetIndex, collectsGo, nowMs);
+      return movePlayerFromCard(state, player.id, targetIndex, collectsGo, nowMs, depth);
     }
     case "moveRelative": {
       const rawIndex = player.position + effect.steps;
       const targetIndex = clampBoardIndex(rawIndex);
       const collectsGo = effect.steps > 0 && rawIndex >= BOARD_SIZE;
-      return movePlayerFromCard(state, player.id, targetIndex, collectsGo, nowMs);
+      return movePlayerFromCard(state, player.id, targetIndex, collectsGo, nowMs, depth);
     }
     case "goToCage":
       return sendPlayerToCageFromCard(state, player.id, nowMs);
@@ -506,7 +513,16 @@ function applyCardEffect(state: MatchState, playerId: string, effect: CardEffect
   }
 }
 
-function movePlayerFromCard(state: MatchState, playerId: string, targetIndex: number, collectsGo: boolean, nowMs: number): MatchState {
+const MAX_CARD_MOVE_DEPTH = 10;
+
+function movePlayerFromCard(
+  state: MatchState,
+  playerId: string,
+  targetIndex: number,
+  collectsGo: boolean,
+  nowMs: number,
+  depth = 0,
+): MatchState {
   const player = state.players.find((p) => p.id === playerId);
   if (!player) return state;
   const destination = BOARD[targetIndex]!;
@@ -526,16 +542,42 @@ function movePlayerFromCard(state: MatchState, playerId: string, targetIndex: nu
       ),
     ],
   };
-  return finishCardLanding(movedState, player.id, nowMs);
+  return resolveSpaceAfterCardMove(movedState, player.id, nowMs, depth);
+}
+
+function resolveSpaceAfterCardMove(
+  state: MatchState,
+  playerId: string,
+  nowMs: number,
+  depth: number,
+): MatchState {
+  if (state.phase === "finished") return state;
+
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player || player.bankrupt || player.inCage) return finishCardLanding(state, playerId, nowMs);
+
+  const landed = BOARD[player.position]!;
+  if ((landed.kind === "scratch" || landed.kind === "teaser") && depth < MAX_CARD_MOVE_DEPTH) {
+    return drawCardAndResolve(state, playerId, landed.kind, nowMs, depth + 1);
+  }
+  if (landed.kind === "goToCage") {
+    return sendPlayerToCageFromCard(state, playerId, nowMs);
+  }
+
+  return finishCardLanding(state, playerId, nowMs);
 }
 
 function sendPlayerToCageFromCard(state: MatchState, playerId: string, nowMs: number): MatchState {
   const cageSpace = BOARD.find((space) => space.kind === "cage")!;
+  const player = state.players.find((p) => p.id === playerId);
   const cagedState: MatchState = {
     ...state,
     players: state.players.map((p) =>
       p.id === playerId ? { ...p, position: cageSpace.index, inCage: true, cageTurnsSkipped: 0 } : p,
     ),
+    events: player
+      ? [...state.events, makeEvent(state, nowMs, `${player.nickname} 被送到${cageSpace.name}。`)]
+      : state.events,
   };
   return finishCardLanding(cagedState, playerId, nowMs);
 }
