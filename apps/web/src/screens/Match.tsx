@@ -107,7 +107,7 @@ function filterMyEvents(events: GameEvent[], nickname: string): GameEvent[] {
 
 /** 收入金額藍色、支出金額紅色；收到租金對自己算收入。 */
 function renderEventMessage(message: string, nickname: string): ReactNode {
-  const amountPattern = /(獲得|支付|賠償|無法支付)\s*(\d+)/g;
+  const amountPattern = /(獲得|支付|賠償|損失|無法支付)\s*(\d+)/g;
   const nodes: ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;

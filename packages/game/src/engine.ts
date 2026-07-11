@@ -607,6 +607,7 @@ function chargeBank(state: MatchState, playerId: string, amount: number, nowMs: 
     return {
       ...state,
       players: state.players.map((p) => (p.id === player.id ? { ...p, food: p.food - amount } : p)),
+      events: [...state.events, makeEvent(state, nowMs, `${player.nickname} 支付 ${amount} 份食物給銀行。`)],
     };
   }
 

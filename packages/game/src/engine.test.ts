@@ -500,5 +500,33 @@ describe("GameEngine move", () => {
 
     expect(error).toBeUndefined();
     expect(state.players.find((p) => p.id === "p1")!.food).toBe(1380);
+    expect(state.events.some((e) => e.message.includes("支付 120 份食物給銀行"))).toBe(true);
+  });
+
+  it("logs a bank payment when a teaser loseFood card deducts food", () => {
+    const loseCard: CardDef = {
+      id: "test-lose-food",
+      deck: "teaser",
+      text: "追羽毛撞翻零食罐，損失 35 份食物。",
+      effect: { type: "loseFood", amount: 35 },
+    };
+    let m = twoPlayerMatch();
+    m = {
+      ...m,
+      players: m.players.map((p) => (p.id === "p1" ? { ...p, position: 5, food: 1500 } : p)),
+      decks: { ...m.decks, teaser: [loseCard], teaserIndex: 0 },
+    };
+
+    const { state, error } = applyIntent(m, {
+      type: "rollDice",
+      playerId: "p1",
+      nowMs: 1_001,
+      dice: [1, 1],
+    });
+
+    expect(error).toBeUndefined();
+    expect(state.players.find((p) => p.id === "p1")!.food).toBe(1465);
+    expect(state.events.some((e) => e.message.includes("抽到逗貓棒"))).toBe(true);
+    expect(state.events.some((e) => e.message.includes("支付 35 份食物給銀行"))).toBe(true);
   });
 });
