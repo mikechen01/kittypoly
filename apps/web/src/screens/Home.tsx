@@ -1,19 +1,15 @@
 import { useState } from "react";
 import type { CSSProperties } from "react";
-import type { CatAvatarId } from "@kittypoly/game";
-
-const AVATARS: CatAvatarId[] = ["tabby", "calico", "black", "white"];
 
 interface HomeProps {
   status: string;
   error: string | null;
-  onCreate: (nickname: string, avatar: CatAvatarId) => void;
-  onJoin: (code: string, nickname: string, avatar: CatAvatarId) => void;
+  onCreate: (nickname: string) => void;
+  onJoin: (code: string, nickname: string) => void;
 }
 
 export function Home({ status, error, onCreate, onJoin }: HomeProps) {
   const [nickname, setNickname] = useState("");
-  const [avatar, setAvatar] = useState<CatAvatarId>("tabby");
   const [code, setCode] = useState("");
   const trimmedNickname = nickname.trim();
 
@@ -22,7 +18,7 @@ export function Home({ status, error, onCreate, onJoin }: HomeProps) {
       <section style={styles.card}>
         <p style={styles.eyebrow}>comic cat monopoly</p>
         <h1 style={styles.title}>KittyPoly</h1>
-        <p>Choose your cat, make a room, then invite the next troublemaker.</p>
+        <p>Make a room, invite friends, then pick your cat in the lobby.</p>
 
         <label style={styles.label}>
           Nickname
@@ -35,27 +31,8 @@ export function Home({ status, error, onCreate, onJoin }: HomeProps) {
           />
         </label>
 
-        <div>
-          <p style={styles.labelText}>Avatar</p>
-          <div style={styles.avatarRow}>
-            {AVATARS.map((candidate) => (
-              <button
-                key={candidate}
-                type="button"
-                onClick={() => setAvatar(candidate)}
-                style={{
-                  ...styles.avatarButton,
-                  outline: candidate === avatar ? "4px solid var(--accent)" : "none",
-                }}
-              >
-                {candidate}
-              </button>
-            ))}
-          </div>
-        </div>
-
         <div style={styles.actions}>
-          <button type="button" disabled={!trimmedNickname} onClick={() => onCreate(trimmedNickname, avatar)}>
+          <button type="button" disabled={!trimmedNickname} onClick={() => onCreate(trimmedNickname)}>
             Create Room
           </button>
 
@@ -72,7 +49,7 @@ export function Home({ status, error, onCreate, onJoin }: HomeProps) {
           <button
             type="button"
             disabled={!trimmedNickname || !code.trim()}
-            onClick={() => onJoin(code, trimmedNickname, avatar)}
+            onClick={() => onJoin(code, trimmedNickname)}
           >
             Join
           </button>
@@ -116,21 +93,10 @@ const styles = {
     fontWeight: 800,
     margin: "1.5rem 0",
   },
-  labelText: {
-    fontWeight: 800,
-  },
   input: {
     border: "var(--border)",
     font: "inherit",
     padding: "0.7rem",
-  },
-  avatarRow: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "0.7rem",
-  },
-  avatarButton: {
-    textTransform: "capitalize",
   },
   actions: {
     display: "flex",

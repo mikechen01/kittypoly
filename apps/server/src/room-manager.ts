@@ -1,4 +1,4 @@
-import { STARTING_FOOD, applyIntent, createMatch } from "@kittypoly/game";
+import { CAT_AVATARS, STARTING_FOOD, applyIntent, createMatch } from "@kittypoly/game";
 import type { CatAvatarId, GameIntent, MatchPublic, MatchState, PlayerPublic, RoomPublic } from "@kittypoly/game";
 import { generateReconnectToken } from "./session.js";
 
@@ -28,10 +28,9 @@ export class RoomManager {
 
   createRoom(input: {
     nickname: string;
-    avatar: CatAvatarId;
     nowMs: number;
   }): { room: RoomPublic; playerId: string; reconnectToken: string } {
-    const player = this.createPlayer(input);
+    const player = this.createPlayer({ nickname: input.nickname, avatar: CAT_AVATARS[0]! });
     const room: RoomState = {
       code: this.generateRoomCode(),
       hostId: player.id,
@@ -46,14 +45,13 @@ export class RoomManager {
   joinRoom(input: {
     code: string;
     nickname: string;
-    avatar: CatAvatarId;
     nowMs: number;
   }): { room: RoomPublic; playerId: string; reconnectToken: string } {
     const room = this.requireRoom(input.code);
     if (room.match) throw new Error("遊戲已開始");
     if (room.players.length >= MAX_PLAYERS) throw new Error("房間已滿");
 
-    const player = this.createPlayer(input);
+    const player = this.createPlayer({ nickname: input.nickname, avatar: assignFreeAvatar(room) });
     room.players.push(player);
     return { room: toPublicRoom(room), playerId: player.id, reconnectToken: player.reconnectToken };
   }
@@ -72,6 +70,11 @@ export class RoomManager {
 
   setAvatar(code: string, playerId: string, avatar: CatAvatarId): RoomPublic {
     const room = this.requireRoom(code);
+    if (room.match) throw new Error("遊戲已開始");
+
+    const takenByOther = room.players.some((player) => player.id !== playerId && player.avatar === avatar);
+    if (takenByOther) throw new Error("這隻貓已被選走");
+
     this.updatePlayer(room, playerId, { avatar });
     return toPublicRoom(room);
   }
@@ -225,6 +228,13 @@ export class RoomManager {
         throw new Error("未知的遊戲動作");
     }
   }
+}
+
+function assignFreeAvatar(room: RoomState): CatAvatarId {
+  const taken = new Set(room.players.map((player) => player.avatar));
+  const free = CAT_AVATARS.find((avatar) => !taken.has(avatar));
+  if (!free) throw new Error("沒有可用的貓咪頭像");
+  return free;
 }
 
 function toPublicRoom(room: RoomState): RoomPublic {

@@ -56,8 +56,8 @@ export function App() {
       <Home
         status={status}
         error={error}
-        onCreate={(nickname, avatar) => client.send({ type: "createRoom", nickname, avatar })}
-        onJoin={(code, nickname, avatar) => client.send({ type: "joinRoom", code, nickname, avatar })}
+        onCreate={(nickname) => client.send({ type: "createRoom", nickname })}
+        onJoin={(code, nickname) => client.send({ type: "joinRoom", code, nickname })}
       />
     );
   }
@@ -70,6 +70,7 @@ export function App() {
         error={error}
         onStart={() => client.send({ type: "startGame" })}
         onKick={(targetPlayerId) => client.send({ type: "kick", playerId: targetPlayerId })}
+        onSetAvatar={(avatar) => client.send({ type: "setAvatar", avatar })}
       />
     );
   }

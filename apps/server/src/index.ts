@@ -65,7 +65,7 @@ function handleMessage(socket: WebSocket, message: ClientMessage): void {
 
   switch (message.type) {
     case "createRoom": {
-      const result = manager.createRoom({ nickname: message.nickname, avatar: message.avatar, nowMs });
+      const result = manager.createRoom({ nickname: message.nickname, nowMs });
       setSession(socket, result.room.code, result.playerId);
       send(socket, { type: "welcome", ...result });
       broadcastSnapshot(result.room);
@@ -75,7 +75,6 @@ function handleMessage(socket: WebSocket, message: ClientMessage): void {
       const result = manager.joinRoom({
         code: normalizeRoomCode(message.code),
         nickname: message.nickname,
-        avatar: message.avatar,
         nowMs,
       });
       setSession(socket, result.room.code, result.playerId);

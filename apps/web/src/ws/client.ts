@@ -2,8 +2,8 @@ import type { CatAvatarId, RoomPublic } from "@kittypoly/game";
 import { loadSession, saveSession } from "../state/session";
 
 export type ClientMessage =
-  | { type: "createRoom"; nickname: string; avatar: CatAvatarId }
-  | { type: "joinRoom"; code: string; nickname: string; avatar: CatAvatarId }
+  | { type: "createRoom"; nickname: string }
+  | { type: "joinRoom"; code: string; nickname: string }
   | { type: "reconnect"; code: string; reconnectToken: string }
   | { type: "kick"; playerId: string }
   | { type: "setAvatar"; avatar: CatAvatarId }

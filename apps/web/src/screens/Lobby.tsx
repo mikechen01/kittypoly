@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import type { RoomPublic } from "@kittypoly/game";
+import { CAT_AVATARS, type CatAvatarId, type RoomPublic } from "@kittypoly/game";
 
 interface LobbyProps {
   room: RoomPublic;
@@ -7,10 +7,15 @@ interface LobbyProps {
   error: string | null;
   onStart: () => void;
   onKick: (playerId: string) => void;
+  onSetAvatar: (avatar: CatAvatarId) => void;
 }
 
-export function Lobby({ room, playerId, error, onStart, onKick }: LobbyProps) {
+export function Lobby({ room, playerId, error, onStart, onKick, onSetAvatar }: LobbyProps) {
   const isHost = room.hostId === playerId;
+  const me = room.players.find((player) => player.id === playerId);
+  const takenByOthers = new Set(
+    room.players.filter((player) => player.id !== playerId).map((player) => player.avatar),
+  );
 
   return (
     <main style={styles.shell}>
@@ -18,6 +23,32 @@ export function Lobby({ room, playerId, error, onStart, onKick }: LobbyProps) {
         <p style={styles.eyebrow}>{isHost ? "You are hosting" : "Waiting for host"}</p>
         <h1 style={styles.code}>{room.code}</h1>
         <p>Share this room code with 2-4 players.</p>
+
+        <div>
+          <p style={styles.labelText}>Your cat</p>
+          <div style={styles.avatarRow}>
+            {CAT_AVATARS.map((candidate) => {
+              const taken = takenByOthers.has(candidate);
+              const selected = me?.avatar === candidate;
+              return (
+                <button
+                  key={candidate}
+                  type="button"
+                  disabled={taken}
+                  onClick={() => onSetAvatar(candidate)}
+                  style={{
+                    ...styles.avatarButton,
+                    ...(selected ? styles.avatarSelected : {}),
+                    ...(taken ? styles.avatarTaken : {}),
+                  }}
+                >
+                  {candidate}
+                  {taken ? " · 已選" : ""}
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         <div style={styles.players}>
           {room.players.map((player) => (
@@ -81,6 +112,26 @@ const styles = {
     lineHeight: 1,
     margin: "0.5rem 0 1rem",
     padding: "0.5rem 1rem",
+  },
+  labelText: {
+    fontWeight: 800,
+    margin: "0 0 0.5rem",
+  },
+  avatarRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "0.7rem",
+    marginBottom: "0.5rem",
+  },
+  avatarButton: {
+    textTransform: "capitalize",
+  },
+  avatarSelected: {
+    outline: "4px solid var(--accent)",
+  },
+  avatarTaken: {
+    opacity: 0.45,
+    cursor: "not-allowed",
   },
   players: {
     display: "grid",

@@ -46,7 +46,9 @@ export interface SimpleSpace {
 
 export type BoardSpace = TerritorySpace | CatTreeSpace | SimpleSpace;
 
-export type CatAvatarId = "tabby" | "calico" | "black" | "white";
+export const CAT_AVATARS = ["tabby", "calico", "black", "white"] as const;
+
+export type CatAvatarId = (typeof CAT_AVATARS)[number];
 
 export interface PlayerPublic {
   id: string;
