@@ -183,7 +183,7 @@ function applyBuyTerritory(
     return { state, error: "這格不能購買" };
   }
   if (player.food < space.price) {
-    return { state, error: "食物不足" };
+    return { state, error: "貓糧不足" };
   }
 
   return {
@@ -244,7 +244,7 @@ function applyBuildHouse(
     return { state, error: "已達建造上限" };
   }
   if (player.food < space.houseCost) {
-    return { state, error: "食物不足" };
+    return { state, error: "貓糧不足" };
   }
 
   const nextBuildings = owner.buildings + 1;

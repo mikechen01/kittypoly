@@ -197,6 +197,25 @@ describe("GameEngine move", () => {
     expect(result.state.awaiting).toBe("end");
   });
 
+  it("rejects build when the player cannot afford the house cost", () => {
+    let m = twoPlayerMatch();
+    m = {
+      ...m,
+      awaiting: "buildOrEnd",
+      ownership: { "sunny-window": { ownerId: "p1", buildings: 0 } },
+      players: m.players.map((p) => (p.id === "p1" ? { ...p, position: 1, food: 49 } : p)),
+    };
+
+    const result = applyIntent(m, {
+      type: "buildHouse",
+      playerId: "p1",
+      spaceId: "sunny-window",
+      nowMs: 1_001,
+    });
+    expect(result.error).toBe("貓糧不足");
+    expect(result.state.ownership["sunny-window"]!.buildings).toBe(0);
+  });
+
   it("sends a player to cage without GO salary when landing on go to cage", () => {
     let m = twoPlayerMatch();
     m = { ...m, players: m.players.map((p) => (p.id === "p1" ? { ...p, position: 28, food: 1500 } : p)) };

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
-import { getBuildableTerritories, type RoomPublic } from "@kittypoly/game";
+import { BOARD, getBuildableTerritories, type RoomPublic } from "@kittypoly/game";
 import type { ClientMessage } from "../ws/client";
 
 type Intent = Extract<ClientMessage, { type: "intent" }>["intent"];
@@ -32,6 +32,11 @@ export function ActionPanel({ room, playerId, error, onIntent, embedded = false 
       ownership: match.ownership,
     });
   }, [player, match.ownership]);
+
+  const buildBlockedHint = useMemo(() => {
+    if (!player || buildables.length > 0) return null;
+    return explainWhyCannotBuild(player, match.ownership);
+  }, [player, match.ownership, buildables.length]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
@@ -111,9 +116,7 @@ export function ActionPanel({ room, playerId, error, onIntent, embedded = false 
                     </select>
                   </label>
                 ) : (
-                  <p style={styles.wait}>
-                    目前不能建造：要再次停在自己擁有的領地上才可以蓋 1 間。
-                  </p>
+                  <p style={styles.wait}>{buildBlockedHint}</p>
                 )}
                 <button
                   type="button"
@@ -142,6 +145,31 @@ export function ActionPanel({ room, playerId, error, onIntent, embedded = false 
       {error ? <p style={styles.error}>{error}</p> : null}
     </div>
   );
+}
+
+function explainWhyCannotBuild(
+  player: RoomPublic["players"][number],
+  ownership: RoomPublic["match"]["ownership"],
+): string {
+  const space = BOARD[player.position];
+  if (!space || space.kind !== "territory") {
+    return "目前不能建造：要再次停在自己擁有的領地上才可以蓋 1 間。";
+  }
+
+  const owner = ownership[space.id];
+  if (!owner || owner.ownerId !== player.id) {
+    return "目前不能建造：要再次停在自己擁有的領地上才可以蓋 1 間。";
+  }
+
+  if (owner.buildings >= 5) {
+    return `「${space.name}」已達建造上限（已是貓別墅）。`;
+  }
+
+  if (player.food < space.houseCost) {
+    return `貓糧不足：建造「${space.name}」需要 ${space.houseCost} 貓糧，你目前有 ${player.food}。`;
+  }
+
+  return "目前不能建造。";
 }
 
 function awaitingLabel(awaiting: RoomPublic["match"]["awaiting"]): string {
