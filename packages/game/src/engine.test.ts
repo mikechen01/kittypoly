@@ -396,7 +396,36 @@ describe("GameEngine move", () => {
       position: 10,
       inCage: true,
     });
-    expect(state.events.at(-1)?.message).toContain(cageCard.text);
+    expect(state.events.some((e) => e.message.includes(cageCard.text))).toBe(true);
+  });
+
+  it("logs the destination when a teaser card moves the player off the draw space", () => {
+    const zoomiesCard: CardDef = {
+      id: "test-zoomies",
+      deck: "teaser",
+      text: "進入暴衝模式，前進八格。",
+      effect: { type: "moveRelative", steps: 8 },
+    };
+    let m = twoPlayerMatch();
+    // index 34 + 1+1 = 36 雷射逗貓棒；+8 → 4 貓薄荷補給站
+    m = {
+      ...m,
+      players: m.players.map((p) => (p.id === "p1" ? { ...p, position: 34 } : p)),
+      decks: { ...m.decks, teaser: [zoomiesCard], teaserIndex: 0 },
+    };
+
+    const { state, error } = applyIntent(m, {
+      type: "rollDice",
+      playerId: "p1",
+      nowMs: 1_001,
+      dice: [1, 1],
+    });
+
+    expect(error).toBeUndefined();
+    expect(state.players.find((p) => p.id === "p1")!.position).toBe(4);
+    expect(state.events.some((e) => e.message.includes("移動到 雷射逗貓棒"))).toBe(true);
+    expect(state.events.some((e) => e.message.includes("抽到逗貓棒"))).toBe(true);
+    expect(state.events.some((e) => e.message.includes("移動到 貓薄荷補給站"))).toBe(true);
   });
 
   it("charges repair cards with buildings 1-4 as houses and 5 as a villa", () => {

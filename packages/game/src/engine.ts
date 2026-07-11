@@ -509,6 +509,7 @@ function applyCardEffect(state: MatchState, playerId: string, effect: CardEffect
 function movePlayerFromCard(state: MatchState, playerId: string, targetIndex: number, collectsGo: boolean, nowMs: number): MatchState {
   const player = state.players.find((p) => p.id === playerId);
   if (!player) return state;
+  const destination = BOARD[targetIndex]!;
   const movedState: MatchState = {
     ...state,
     players: state.players.map((p) =>
@@ -516,6 +517,14 @@ function movePlayerFromCard(state: MatchState, playerId: string, targetIndex: nu
         ? { ...p, position: targetIndex, food: p.food + (collectsGo ? GO_SALARY : 0), inCage: false, cageTurnsSkipped: 0 }
         : p,
     ),
+    events: [
+      ...state.events,
+      makeEvent(
+        state,
+        nowMs,
+        `${player.nickname} 移動到 ${destination.name}${collectsGo ? `，獲得 ${GO_SALARY} 份食物` : ""}。`,
+      ),
+    ],
   };
   return finishCardLanding(movedState, player.id, nowMs);
 }
