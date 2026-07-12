@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { BOARD } from "@kittypoly/game";
 import type { RoomPublic, SpaceKind } from "@kittypoly/game";
+import { CatAvatar } from "./CatAvatar";
 
 interface BoardProps {
   room: RoomPublic;
@@ -66,7 +67,7 @@ export function Board({ room }: BoardProps) {
               <div style={styles.tokens}>
                 {playersHere.map((player) => (
                   <span key={player.id} title={player.nickname} style={styles.token}>
-                    {player.avatar.slice(0, 2)}
+                    <CatAvatar id={player.avatar} size={22} />
                   </span>
                 ))}
               </div>
@@ -159,14 +160,14 @@ const styles = {
     gap: "0.2rem",
   },
   token: {
-    background: "var(--ok)",
+    background: "white",
     border: "2px solid var(--ink)",
     borderRadius: "999px",
-    fontSize: "0.62rem",
-    fontWeight: 900,
+    display: "grid",
     lineHeight: 1,
-    padding: "0.2rem",
-    textTransform: "uppercase",
+    overflow: "hidden",
+    padding: "1px",
+    placeItems: "center",
   },
   center: {
     alignSelf: "stretch",

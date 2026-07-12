@@ -14,7 +14,6 @@ interface ActionPanelProps {
 }
 
 export function ActionPanel({ room, playerId, error, onIntent, embedded = false }: ActionPanelProps) {
-  const [selectedSpaceId, setSelectedSpaceId] = useState("");
   const [now, setNow] = useState(() => Date.now());
   const match = room.match;
   const player = room.players.find((candidate) => candidate.id === playerId);
@@ -42,12 +41,6 @@ export function ActionPanel({ room, playerId, error, onIntent, embedded = false 
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
   }, []);
-
-  useEffect(() => {
-    if (!buildables.some((space) => space.id === selectedSpaceId)) {
-      setSelectedSpaceId(buildables[0]?.id ?? "");
-    }
-  }, [buildables, selectedSpaceId]);
 
   const showDice = isMyTurn && match.lastDice !== null;
   const diceLabel = showDice
@@ -97,34 +90,17 @@ export function ActionPanel({ room, playerId, error, onIntent, embedded = false 
 
             {match.awaiting === "buildOrEnd" ? (
               <>
-                <p style={styles.hint}>
-                  第一次買地當回合不能蓋房；之後再走到自己的領地，才能蓋 1 間貓屋／升級。
-                </p>
                 {buildables.length > 0 ? (
-                  <label style={styles.label}>
-                    蓋貓屋／貓別墅
-                    <select
-                      style={styles.input}
-                      value={selectedSpaceId}
-                      onChange={(event) => setSelectedSpaceId(event.target.value)}
-                    >
-                      {buildables.map((space) => (
-                        <option key={space.id} value={space.id}>
-                          {space.name}（目前 {space.buildings} → {space.nextLabel}，{space.houseCost} 貓糧）
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <button
+                    type="button"
+                    onClick={() => onIntent("buildHouse", buildables[0]!.id)}
+                    style={styles.fullButton}
+                  >
+                    蓋{buildables[0]!.nextLabel}（{buildables[0]!.name} · {buildables[0]!.houseCost} 貓糧）
+                  </button>
                 ) : (
                   <p style={styles.wait}>{buildBlockedHint}</p>
                 )}
-                <button
-                  type="button"
-                  disabled={!selectedSpaceId}
-                  onClick={() => onIntent("buildHouse", selectedSpaceId)}
-                >
-                  建造
-                </button>
                 <button type="button" onClick={() => onIntent("endTurn")} style={styles.secondaryButton}>
                   結束回合
                 </button>
@@ -227,26 +203,9 @@ const styles = {
   secondaryButton: {
     background: "white",
   },
-  label: {
-    display: "grid",
-    flex: "1 1 12rem",
-    gap: "0.25rem",
-    fontWeight: 800,
-  },
-  input: {
-    border: "var(--border)",
-    font: "inherit",
-    padding: "0.55rem",
-  },
   wait: {
     color: "var(--info)",
     fontWeight: 800,
-    margin: 0,
-  },
-  hint: {
-    color: "var(--ink)",
-    fontSize: "0.92rem",
-    fontWeight: 700,
     margin: 0,
   },
   error: {

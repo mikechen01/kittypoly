@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import { CAT_AVATARS, type CatAvatarId, type RoomPublic } from "@kittypoly/game";
+import { CatAvatar, avatarLabel } from "../components/CatAvatar";
 
 interface LobbyProps {
   room: RoomPublic;
@@ -25,7 +26,7 @@ export function Lobby({ room, playerId, error, onStart, onKick, onSetAvatar }: L
         <p>Share this room code with 2-4 players.</p>
 
         <div>
-          <p style={styles.labelText}>Your cat</p>
+          <p style={styles.labelText}>選擇你的貓咪</p>
           <div style={styles.avatarRow}>
             {CAT_AVATARS.map((candidate) => {
               const taken = takenByOthers.has(candidate);
@@ -42,8 +43,11 @@ export function Lobby({ room, playerId, error, onStart, onKick, onSetAvatar }: L
                     ...(taken ? styles.avatarTaken : {}),
                   }}
                 >
-                  {candidate}
-                  {taken ? " · 已選" : ""}
+                  <CatAvatar id={candidate} size={64} />
+                  <span style={styles.avatarName}>
+                    {avatarLabel(candidate)}
+                    {taken ? " · 已選" : ""}
+                  </span>
                 </button>
               );
             })}
@@ -53,13 +57,16 @@ export function Lobby({ room, playerId, error, onStart, onKick, onSetAvatar }: L
         <div style={styles.players}>
           {room.players.map((player) => (
             <article key={player.id} style={styles.player}>
-              <div>
-                <strong>
-                  {player.nickname} {player.id === room.hostId ? "(host)" : ""}
-                </strong>
-                <p style={styles.meta}>
-                  {player.avatar} cat · {player.connected ? "online" : "offline"}
-                </p>
+              <div style={styles.playerInfo}>
+                <CatAvatar id={player.avatar} size={44} />
+                <div>
+                  <strong>
+                    {player.nickname} {player.id === room.hostId ? "(host)" : ""}
+                  </strong>
+                  <p style={styles.meta}>
+                    {avatarLabel(player.avatar)} · {player.connected ? "online" : "offline"}
+                  </p>
+                </div>
               </div>
               {isHost && player.id !== playerId ? (
                 <button type="button" onClick={() => onKick(player.id)}>
@@ -124,7 +131,17 @@ const styles = {
     marginBottom: "0.5rem",
   },
   avatarButton: {
-    textTransform: "capitalize",
+    alignItems: "center",
+    background: "white",
+    display: "grid",
+    gap: "0.35rem",
+    justifyItems: "center",
+    minWidth: "5.5rem",
+    padding: "0.55rem",
+  },
+  avatarName: {
+    fontSize: "0.85rem",
+    fontWeight: 800,
   },
   avatarSelected: {
     outline: "4px solid var(--accent)",
@@ -146,9 +163,13 @@ const styles = {
     gap: "1rem",
     padding: "0.9rem",
   },
+  playerInfo: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.75rem",
+  },
   meta: {
     margin: "0.25rem 0 0",
-    textTransform: "capitalize",
   },
   wait: {
     color: "var(--info)",

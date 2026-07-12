@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import type { RoomPublic } from "@kittypoly/game";
+import { CatAvatar, avatarLabel } from "../components/CatAvatar";
 
 interface ResultsProps {
   room: RoomPublic;
@@ -13,8 +14,13 @@ export function Results({ room, onClearSession }: ResultsProps) {
     <main style={styles.shell}>
       <section style={styles.card}>
         <p style={styles.eyebrow}>Game over</p>
+        {winner ? <CatAvatar id={winner.avatar} size={96} style={styles.winnerAvatar} /> : null}
         <h1 style={styles.title}>{winner?.nickname ?? "No winner yet"}</h1>
-        <p style={styles.copy}>{winner ? "wins KittyPoly with the fullest food bowl." : "The match ended without a winner."}</p>
+        <p style={styles.copy}>
+          {winner
+            ? `${avatarLabel(winner.avatar)} wins KittyPoly with the fullest food bowl.`
+            : "The match ended without a winner."}
+        </p>
         <button type="button" onClick={onClearSession}>
           Clear Session
         </button>
@@ -52,5 +58,8 @@ const styles = {
   },
   copy: {
     fontWeight: 800,
+  },
+  winnerAvatar: {
+    margin: "0 auto 0.5rem",
   },
 } satisfies Record<string, CSSProperties>;

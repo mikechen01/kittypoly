@@ -2,6 +2,7 @@ import { type CSSProperties, type ReactNode } from "react";
 import { BOARD, type GameEvent, type RoomPublic } from "@kittypoly/game";
 import { ActionPanel } from "../components/ActionPanel";
 import { Board } from "../components/Board";
+import { CatAvatar, avatarLabel } from "../components/CatAvatar";
 import type { ClientMessage } from "../ws/client";
 
 type Intent = Extract<ClientMessage, { type: "intent" }>["intent"];
@@ -27,18 +28,23 @@ export function Match({ room, playerId, error, onIntent }: MatchProps) {
         <div style={styles.side}>
           <section style={styles.selfCard} aria-label="我的資訊">
             <p style={styles.eyebrow}>我的狀態</p>
-            <h2 style={styles.selfTitle}>{me?.nickname ?? "玩家"}</h2>
             {me ? (
-              <>
-                <p style={styles.location}>
-                  現在位置：{me.inCage ? `貓籠（原格：${mySpaceName}）` : mySpaceName}
-                </p>
-                <p style={styles.meta}>
-                  {avatarLabel(me.avatar)} · {me.food} 貓糧
-                  {me.bankrupt ? " · 已破產" : ""}
-                </p>
-              </>
-            ) : null}
+              <div style={styles.selfHeader}>
+                <CatAvatar id={me.avatar} size={56} />
+                <div>
+                  <h2 style={styles.selfTitle}>{me.nickname}</h2>
+                  <p style={styles.location}>
+                    現在位置：{me.inCage ? `貓籠（原格：${mySpaceName}）` : mySpaceName}
+                  </p>
+                  <p style={styles.meta}>
+                    {avatarLabel(me.avatar)} · {me.food} 貓糧
+                    {me.bankrupt ? " · 已破產" : ""}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <h2 style={styles.selfTitle}>玩家</h2>
+            )}
 
             <div style={styles.divider} />
 
@@ -77,7 +83,10 @@ export function Match({ room, playerId, error, onIntent }: MatchProps) {
                         ...(player.bankrupt ? styles.bankruptPlayer : {}),
                       }}
                     >
-                      <strong>{player.nickname}</strong>
+                      <div style={styles.playerHeader}>
+                        <CatAvatar id={player.avatar} size={40} />
+                        <strong>{player.nickname}</strong>
+                      </div>
                       <span style={styles.location}>
                         現在位置：{player.inCage ? `貓籠（原格：${spaceName}）` : spaceName}
                       </span>
@@ -149,19 +158,6 @@ function amountPolarity(
   return "expense";
 }
 
-function avatarLabel(avatar: RoomPublic["players"][number]["avatar"]): string {
-  switch (avatar) {
-    case "tabby":
-      return "虎斑";
-    case "calico":
-      return "三花";
-    case "black":
-      return "黑貓";
-    case "white":
-      return "白貓";
-  }
-}
-
 const styles = {
   shell: {
     display: "grid",
@@ -189,6 +185,11 @@ const styles = {
     display: "grid",
     gap: "0.75rem",
     padding: "1rem",
+  },
+  selfHeader: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.75rem",
   },
   othersCard: {
     background: "white",
@@ -222,6 +223,11 @@ const styles = {
     display: "grid",
     gap: "0.25rem",
     padding: "0.65rem",
+  },
+  playerHeader: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.55rem",
   },
   activePlayer: {
     background: "var(--accent-2)",

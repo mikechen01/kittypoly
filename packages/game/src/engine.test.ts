@@ -168,6 +168,30 @@ describe("GameEngine move", () => {
     ).toBeDefined();
   });
 
+  it("refreshes the turn deadline after landing so buildOrEnd is not instantly auto-ended", () => {
+    let m = twoPlayerMatch();
+    m = {
+      ...m,
+      turnDeadlineMs: 5_000,
+      ownership: { "sunny-window": { ownerId: "p1", buildings: 0 } },
+      players: m.players.map((p) => (p.id === "p1" ? { ...p, position: 39 } : p)),
+    };
+
+    const rolled = applyIntent(m, {
+      type: "rollDice",
+      playerId: "p1",
+      nowMs: 5_100,
+      dice: [1, 1],
+    });
+    expect(rolled.error).toBeUndefined();
+    expect(rolled.state.awaiting).toBe("buildOrEnd");
+    expect(rolled.state.turnDeadlineMs).toBeGreaterThan(5_100);
+
+    const ticked = applyIntent(rolled.state, { type: "tick", nowMs: 5_100 });
+    expect(ticked.state.awaiting).toBe("buildOrEnd");
+    expect(ticked.state.currentPlayerId).toBe("p1");
+  });
+
   it("builds on the owned territory the player is standing on", () => {
     let m = twoPlayerMatch();
     m = {

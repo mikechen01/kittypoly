@@ -116,11 +116,15 @@ function applyTick(state: MatchState, intent: Extract<GameIntent, { type: "tick"
     let result: ApplyIntentResult;
     switch (current.awaiting) {
       case "roll":
-        result = applyRollDice(addSystemEvent(current, intent.nowMs, "系統代行：逾時自動擲骰。"), {
-          type: "rollDice",
-          playerId,
-          nowMs: intent.nowMs,
-        });
+        result = applyRollDice(
+          addSystemEvent(current, intent.nowMs, "系統代行：逾時自動擲骰。"),
+          {
+            type: "rollDice",
+            playerId,
+            nowMs: intent.nowMs,
+          },
+          { extendDeadline: false },
+        );
         break;
       case "buyOrSkip":
         result = applySkipBuy(current, { type: "skipBuy", playerId, nowMs: intent.nowMs });
@@ -141,6 +145,7 @@ function applyTick(state: MatchState, intent: Extract<GameIntent, { type: "tick"
 function applyRollDice(
   state: MatchState,
   intent: Extract<GameIntent, { type: "rollDice" }>,
+  options?: { extendDeadline?: boolean },
 ): ApplyIntentResult {
   if (state.awaiting !== "roll") {
     return { state, error: "目前不能擲骰" };
@@ -155,11 +160,20 @@ function applyRollDice(
   }
 
   const dice = intent.dice ?? [rollDie(state.rng), rollDie(state.rng)];
-  if (player.inCage) {
-    return applyCageRoll(state, player, dice, intent.nowMs);
+  const result = player.inCage
+    ? applyCageRoll(state, player, dice, intent.nowMs)
+    : movePlayerByDice(state, player.id, dice, intent.nowMs);
+
+  if (result.error || options?.extendDeadline === false) {
+    return result;
   }
 
-  return movePlayerByDice(state, player.id, dice, intent.nowMs);
+  return {
+    state: {
+      ...result.state,
+      turnDeadlineMs: intent.nowMs + TURN_TIMER_MS,
+    },
+  };
 }
 
 function applyBuyTerritory(
