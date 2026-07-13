@@ -9,9 +9,10 @@ interface LobbyProps {
   onStart: () => void;
   onKick: (playerId: string) => void;
   onSetAvatar: (avatar: CatAvatarId) => void;
+  onEndRoom: () => void;
 }
 
-export function Lobby({ room, playerId, error, onStart, onKick, onSetAvatar }: LobbyProps) {
+export function Lobby({ room, playerId, error, onStart, onKick, onSetAvatar, onEndRoom }: LobbyProps) {
   const isHost = room.hostId === playerId;
   const me = room.players.find((player) => player.id === playerId);
   const takenByOthers = new Set(
@@ -78,9 +79,14 @@ export function Lobby({ room, playerId, error, onStart, onKick, onSetAvatar }: L
         </div>
 
         {isHost ? (
-          <button type="button" disabled={room.players.length < 2} onClick={onStart}>
-            Start Game
-          </button>
+          <div style={styles.hostActions}>
+            <button type="button" disabled={room.players.length < 2} onClick={onStart}>
+              Start Game
+            </button>
+            <button type="button" onClick={onEndRoom} style={styles.danger}>
+              解散房間
+            </button>
+          </div>
         ) : (
           <p style={styles.wait}>The host will start when every cat is ready.</p>
         )}
@@ -174,6 +180,16 @@ const styles = {
   wait: {
     color: "var(--info)",
     fontWeight: 800,
+  },
+  hostActions: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "0.75rem",
+    alignItems: "center",
+  },
+  danger: {
+    background: "white",
+    color: "var(--accent)",
   },
   error: {
     color: "var(--accent)",

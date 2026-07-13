@@ -112,6 +112,13 @@ function handleMessage(socket: WebSocket, message: ClientMessage): void {
       broadcastSnapshot(room);
       return;
     }
+    case "endRoom": {
+      const session = requireRoomSession(socket);
+      const code = session.code;
+      manager.endRoom(code, session.playerId);
+      broadcastRoomEnded(code);
+      return;
+    }
     case "intent": {
       const session = requireRoomSession(socket);
       const room = manager.handleIntent(session.code, session.playerId, message.intent, nowMs, {
@@ -157,6 +164,15 @@ function broadcastSnapshot(room: RoomPublic): void {
   const message: ServerMessage = { type: "snapshot", room };
   for (const [socket, session] of sessions) {
     if (session.code === room.code) send(socket, message);
+  }
+}
+
+function broadcastRoomEnded(code: string): void {
+  const message: ServerMessage = { type: "roomEnded", reason: "hostEnded" };
+  for (const [socket, session] of sessions) {
+    if (session.code !== code) continue;
+    sessions.set(socket, {});
+    send(socket, message);
   }
 }
 

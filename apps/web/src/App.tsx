@@ -39,6 +39,14 @@ export function App() {
       return;
     }
 
+    if (message.type === "roomEnded") {
+      clearSession();
+      setRoom(null);
+      setPlayerId(null);
+      setError("房主已解散房間");
+      return;
+    }
+
     setError(null);
     setRoom(message.room);
     if (message.type === "welcome") setPlayerId(message.playerId);
@@ -49,6 +57,11 @@ export function App() {
     setRoom(null);
     setPlayerId(null);
     setError(null);
+  }
+
+  function handleEndRoom(): void {
+    if (!window.confirm("確定解散房間？所有人都會回到首頁。")) return;
+    client.send({ type: "endRoom" });
   }
 
   if (!room || !playerId) {
@@ -71,12 +84,20 @@ export function App() {
         onStart={() => client.send({ type: "startGame" })}
         onKick={(targetPlayerId) => client.send({ type: "kick", playerId: targetPlayerId })}
         onSetAvatar={(avatar) => client.send({ type: "setAvatar", avatar })}
+        onEndRoom={handleEndRoom}
       />
     );
   }
 
   if (room.match.phase === "finished") {
-    return <Results room={room} onClearSession={handleClearSession} />;
+    return (
+      <Results
+        room={room}
+        playerId={playerId}
+        onClearSession={handleClearSession}
+        onEndRoom={handleEndRoom}
+      />
+    );
   }
 
   return (
@@ -85,6 +106,7 @@ export function App() {
       playerId={playerId}
       error={error}
       onIntent={(intent, spaceId) => client.send({ type: "intent", intent, spaceId })}
+      onEndRoom={handleEndRoom}
     />
   );
 }

@@ -8,6 +8,7 @@ export type ClientMessage =
   | { type: "kick"; playerId: string }
   | { type: "setAvatar"; avatar: CatAvatarId }
   | { type: "startGame" }
+  | { type: "endRoom" }
   | {
       type: "intent";
       intent: "rollDice" | "buyTerritory" | "skipBuy" | "buildHouse" | "payCageFine" | "endTurn";
@@ -17,6 +18,7 @@ export type ClientMessage =
 export type ServerMessage =
   | { type: "welcome"; playerId: string; reconnectToken: string; room: RoomPublic }
   | { type: "snapshot"; room: RoomPublic }
+  | { type: "roomEnded"; reason: "hostEnded" }
   | { type: "error"; code: string; message: string };
 
 type Listener = (message: ServerMessage) => void;

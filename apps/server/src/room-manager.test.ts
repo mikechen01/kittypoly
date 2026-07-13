@@ -149,4 +149,38 @@ describe("RoomManager", () => {
 
     expect(() => manager.setAvatar(created.room.code, created.playerId, "black")).toThrow("遊戲已開始");
   });
+
+  it("lets the host end a lobby room so it is gone", () => {
+    const manager = new RoomManager(() => 0);
+    const created = manager.createRoom({ nickname: "Mochi", nowMs: 1_000 });
+
+    manager.endRoom(created.room.code, created.playerId);
+
+    expect(manager.getRoom(created.room.code)).toBeNull();
+  });
+
+  it("lets the host end a playing room", () => {
+    const manager = new RoomManager(() => 0);
+    const created = manager.createRoom({ nickname: "Mochi", nowMs: 1_000 });
+    manager.joinRoom({ code: created.room.code, nickname: "Luna", nowMs: 2_000 });
+    manager.startGame(created.room.code, created.playerId, 3_000);
+
+    manager.endRoom(created.room.code, created.playerId);
+
+    expect(manager.getRoom(created.room.code)).toBeNull();
+    expect(manager.playingRoomCodes()).toEqual([]);
+  });
+
+  it("rejects endRoom from a non-host", () => {
+    const manager = new RoomManager(() => 0);
+    const created = manager.createRoom({ nickname: "Mochi", nowMs: 1_000 });
+    const joined = manager.joinRoom({
+      code: created.room.code,
+      nickname: "Luna",
+      nowMs: 2_000,
+    });
+
+    expect(() => manager.endRoom(created.room.code, joined.playerId)).toThrow("只有房主可以解散房間");
+    expect(manager.getRoom(created.room.code)).not.toBeNull();
+  });
 });

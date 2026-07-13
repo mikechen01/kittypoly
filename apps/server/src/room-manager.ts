@@ -101,6 +101,12 @@ export class RoomManager {
     return toPublicRoom(room);
   }
 
+  endRoom(code: string, hostId: string): void {
+    const room = this.requireRoom(code);
+    if (room.hostId !== hostId) throw new Error("只有房主可以解散房間");
+    this.rooms.delete(code);
+  }
+
   disconnect(code: string, playerId: string, nowMs: number): void {
     const room = this.requireRoom(code);
     this.updatePlayer(room, playerId, { connected: false, disconnectedAtMs: nowMs });

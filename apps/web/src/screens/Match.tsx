@@ -12,14 +12,16 @@ interface MatchProps {
   playerId: string;
   error: string | null;
   onIntent: (intent: Intent, spaceId?: string) => void;
+  onEndRoom: () => void;
 }
 
-export function Match({ room, playerId, error, onIntent }: MatchProps) {
+export function Match({ room, playerId, error, onIntent, onEndRoom }: MatchProps) {
   const me = room.players.find((player) => player.id === playerId);
   const others = room.players.filter((player) => player.id !== playerId);
   const mySpace = me ? BOARD[me.position] : undefined;
   const mySpaceName = mySpace?.name ?? (me ? `第 ${me.position} 格` : "—");
   const myEvents = filterMyEvents(room.match.events, me?.nickname ?? "");
+  const isHost = room.hostId === playerId;
 
   return (
     <main style={styles.shell}>
@@ -65,6 +67,12 @@ export function Match({ room, playerId, error, onIntent }: MatchProps) {
             <div style={styles.divider} />
 
             <ActionPanel room={room} playerId={playerId} error={error} onIntent={onIntent} embedded />
+
+            {isHost ? (
+              <button type="button" onClick={onEndRoom} style={styles.endRoom}>
+                解散房間
+              </button>
+            ) : null}
           </section>
 
           <section style={styles.othersCard} aria-label="其他玩家">
@@ -275,5 +283,10 @@ const styles = {
     color: "var(--info)",
     fontWeight: 800,
     margin: 0,
+  },
+  endRoom: {
+    background: "white",
+    color: "var(--accent)",
+    marginTop: "0.5rem",
   },
 } satisfies Record<string, CSSProperties>;

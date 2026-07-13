@@ -4,11 +4,14 @@ import { CatAvatar, avatarLabel } from "../components/CatAvatar";
 
 interface ResultsProps {
   room: RoomPublic;
+  playerId: string;
   onClearSession: () => void;
+  onEndRoom: () => void;
 }
 
-export function Results({ room, onClearSession }: ResultsProps) {
+export function Results({ room, playerId, onClearSession, onEndRoom }: ResultsProps) {
   const winner = room.players.find((player) => player.id === room.match.winnerId);
+  const isHost = room.hostId === playerId;
 
   return (
     <main style={styles.shell}>
@@ -21,9 +24,16 @@ export function Results({ room, onClearSession }: ResultsProps) {
             ? `${avatarLabel(winner.avatar)} wins KittyPoly with the fullest food bowl.`
             : "The match ended without a winner."}
         </p>
-        <button type="button" onClick={onClearSession}>
-          Clear Session
-        </button>
+        <div style={styles.actions}>
+          <button type="button" onClick={onClearSession}>
+            Clear Session
+          </button>
+          {isHost ? (
+            <button type="button" onClick={onEndRoom} style={styles.danger}>
+              解散房間
+            </button>
+          ) : null}
+        </div>
       </section>
     </main>
   );
@@ -61,5 +71,16 @@ const styles = {
   },
   winnerAvatar: {
     margin: "0 auto 0.5rem",
+  },
+  actions: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "0.75rem",
+    justifyContent: "center",
+    marginTop: "1.25rem",
+  },
+  danger: {
+    background: "white",
+    color: "var(--accent)",
   },
 } satisfies Record<string, CSSProperties>;
