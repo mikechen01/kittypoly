@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import type { RoomPublic } from "@kittypoly/game";
+import type { PlayerPublic, RoomPublic } from "@kittypoly/game";
 import { CatAvatar, avatarLabel } from "../components/CatAvatar";
 
 interface ResultsProps {
@@ -10,19 +10,19 @@ interface ResultsProps {
 }
 
 export function Results({ room, playerId, onClearSession, onEndRoom }: ResultsProps) {
-  const winner = room.players.find((player) => player.id === room.match.winnerId);
+  const winner = resolveWinner(room);
   const isHost = room.hostId === playerId;
 
   return (
     <main style={styles.shell}>
       <section style={styles.card}>
-        <p style={styles.eyebrow}>Game over</p>
+        <p style={styles.eyebrow}>遊戲結束</p>
         {winner ? <CatAvatar id={winner.avatar} size={96} style={styles.winnerAvatar} /> : null}
-        <h1 style={styles.title}>{winner?.nickname ?? "No winner yet"}</h1>
+        <h1 style={styles.title}>{winner?.nickname ?? "沒有勝者"}</h1>
         <p style={styles.copy}>
           {winner
-            ? `${avatarLabel(winner.avatar)} wins KittyPoly with the fullest food bowl.`
-            : "The match ended without a winner."}
+            ? `${winner.nickname}（${avatarLabel(winner.avatar)}）獲勝！成為最後一隻還沒破產的貓咪。`
+            : "對局結束，沒有勝者。"}
         </p>
         <div style={styles.actions}>
           <button type="button" onClick={onClearSession}>
@@ -37,6 +37,15 @@ export function Results({ room, playerId, onClearSession, onEndRoom }: ResultsPr
       </section>
     </main>
   );
+}
+
+/** Prefer winnerId when that seat is still solvent; otherwise sole non-bankrupt survivor. */
+export function resolveWinner(room: RoomPublic): PlayerPublic | null {
+  const byId = room.players.find((player) => player.id === room.match.winnerId);
+  if (byId && !byId.bankrupt) return byId;
+
+  const survivors = room.players.filter((player) => !player.bankrupt);
+  return survivors.length === 1 ? survivors[0]! : null;
 }
 
 const styles = {
